@@ -105,7 +105,7 @@ cargo doc --open
 ```
 
 ### 2.2. Your Turn
-
+DONEgit 
 As the first part of the assignment, you should verbosely document the `guessing_game.rs`. Include the following:
 - A document comment describing the purpose of the file.
 - Document comments for each function.
