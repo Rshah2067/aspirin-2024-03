@@ -82,19 +82,18 @@ fn get_num_excel_students_for_class(class_year: ClassYear) -> u32 {
 }
 
 fn get_best_class() -> ClassYear {
-    let average = get_average_gpa();
     let excel: [u32;3] = [get_num_excel_students_for_class(ClassYear::Sophomore),
     get_num_excel_students_for_class(ClassYear::Junior),get_num_excel_students_for_class(ClassYear::Senior)];
     let mut greatest = 0;
-    for i in 1..3 {
-        if excel[i] > excel[greatest]{
+    for i in 0..3 {
+        if excel[i] >= excel[greatest]{
             greatest = i;
         }
     }
     match greatest {
-        1 =>ClassYear::Sophomore,
-        2 =>ClassYear::Junior,
-        3 =>ClassYear::Senior,
+        0 =>ClassYear::Sophomore,
+        1 =>ClassYear::Junior,
+        2 =>ClassYear::Senior,
         _ => ClassYear::Senior,
     }
 }
