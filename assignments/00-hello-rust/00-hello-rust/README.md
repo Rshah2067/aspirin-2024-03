@@ -255,7 +255,8 @@ Additionally, no advanced calculator is complete without support for multiple ba
 - Binary (numbers are prefixed with 0b)
 
 Helpful tip:
-Algebraic types in rust already have helpful built-in functions for handling varying bases. For this particular application, we recommend taking a look at [`from_str_radix`](https://doc.rust-lang.org/std/primitive.u32.html#method.from_str_radix) for parsing.
+Algebraic types in rust already have helpful built-in functions for handling varying bases. For this particular application, we recommend taking a look at [`from_str_radix`](https://doc.rust-l
+ang.org/std/primitive.u32.html#method.from_str_radix) for parsing.
 
 Note: Even though it was acceptable to only implement the specified operations and numerical bases, your code should be written with scalability in mind such that new features can be easily integrated. (hint hint, enums!)
 
