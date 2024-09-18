@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 //use fizz_buzz::print_fizz_buzz;
- mod calculator;
+mod calculator;
 use calculator::run;
 // mod fizz_buzz;
 //mod guessing_game;
@@ -9,5 +9,5 @@ use calculator::run;
 //mod university;
 
 fn main() {
-   run();
+    run();
 }
