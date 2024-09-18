@@ -19,31 +19,70 @@ struct Calculator{
     input1:u32,
     input2:u32,
 }
-//Take input and parse string for input put
+pub fn run() {
+    println!("test");
+    let mut calculator = Calculator {
+        op:operation::invalid,
+        inputform:inputformat::invalid,
+        output: 0,
+        input1: 0,
+        input2: 0,
+    };
+    calculator = gather_all_inputs(calculator);
+     preform_operation(calculator);
 
-fn run_calculator(mut Calc:Calculator){
+}
+fn preform_operation(mut Calc:Calculator){
+    match Calc.op {
+        operation::OR => {
+        Calc.output = Calc.input1 | Calc.input2;
+        println!("The result of {} | {} is {}",Calc.input1,Calc.input2,Calc.output);
+        },
+        operation::XOR => {
+            Calc.output = Calc.input1 ^ Calc.input2;
+            println!("The result of {} | {} is {}",Calc.input1,Calc.input2,Calc.output);
+        },
+        operation::AND =>{
+            Calc.output = Calc.input1 ^ Calc.input2;
+            println!("The result of {} | {} is {}",Calc.input1,Calc.input2,Calc.output);
+        } ,
+        operation::invalid =>println!("Provide Valid Input"),
+    }
+    
+}
+//Gathering All inputs
+fn gather_all_inputs(mut calc:Calculator) -> Calculator{
     //ask for input
-    ask_for_input(1);
+    request_for_input(1);
     let mut input = store_input();
-    let data = determine_input_type(&input);
+    let mut data = determine_input_type(&input);
     //check to see if user put in a valid input, if it does then parse the input for data
-    match Calc.inputform {
+    match calc.inputform {
         inputformat::invalid =>{
             println!("invalid input, please try again");
+            calc
         }
         _ =>{
-            Calc.input1 = convert_input_type(data,&Calc);
-            ask_for_input(3);
-            
-            
+            calc.input1 = convert_input_type(data,&calc);
+            request_for_input(3);
+            calc.op = determine_input_operation(&store_input());
+            request_for_input(2);
+            input = store_input();
+            data = determine_input_type(&input);
+            match calc.inputform {
+                inputformat::invalid =>{
+                    println!("invalid input, please try again");
+                    calc
+                }
+                _=>{
+                    calc.input2 = convert_input_type(data, &calc);
+                    calc
+                }
+            }
         }
     }
-    //parse input to string containing value and determine input type
-    //convert to decimel
-    //preform operation
-    //return input
 }
-fn ask_for_input(input_number: u32 ){
+fn request_for_input(input_number: u32 ){
     match input_number{
         1 =>println!("Please enter first number:"),
         2 =>println!("Please enter second number:"),
@@ -122,6 +161,7 @@ fn convert_input_type(input:&str,calc:&Calculator)->u32{
         },
     }
 }
+
 //&, AND, and
 fn determine_input_operation(raw:&str) ->operation{
     let input = raw.trim();

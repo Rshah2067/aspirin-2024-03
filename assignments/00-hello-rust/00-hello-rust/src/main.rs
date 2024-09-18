@@ -2,12 +2,12 @@
 
 //use fizz_buzz::print_fizz_buzz;
  mod calculator;
+use calculator::run;
 // mod fizz_buzz;
- mod guessing_game;
+//mod guessing_game;
 //mod traffic_light;
 //mod university;
 
 fn main() {
-   // print_fizz_buzz(15);
-   
+   run();
 }
