@@ -11,13 +11,37 @@ struct TrafficLightState {
     last_transition_time_ms: u32,
 }
 
-fn get_next_color(state: TrafficLightState) -> TrafficLightColor {}
+fn get_next_color(state: TrafficLightState) -> TrafficLightColor {
+    match state.current_color{
+        TrafficLightColor::Red => TrafficLightColor::Green,
+        TrafficLightColor::Yellow => TrafficLightColor::Red,
+        TrafficLightColor::Green => TrafficLightColor::Yellow,
+    }
+}
 
 fn get_next_state(
     state: TrafficLightState,
     current_time_ms: u32,
     pedestrian_walk_request: bool,
 ) -> TrafficLightColor {
+    let change_time: u32 = match state.current_color {
+        TrafficLightColor::Red => 25000,
+        TrafficLightColor::Yellow => 5000,
+        TrafficLightColor::Green => {
+            if pedestrian_walk_request{
+                20000
+            }
+            else {
+                30000
+            }
+        },
+    };
+    if current_time_ms - state.last_transition_time_ms >= change_time{
+        get_next_color(state)
+    }
+    else{
+        state.current_color
+    }
 }
 
 // Do not modify below here

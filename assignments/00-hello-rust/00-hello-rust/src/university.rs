@@ -1,3 +1,5 @@
+use core::num;
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum ClassYear {
     Senior,
@@ -12,7 +14,7 @@ struct Student {
     gpa: f32,
 }
 
-const OLIN_STUDENTS: [Student; 5] = [
+const OLIN_STUDENTS: [Student; 8] = [
     Student {
         name: "Alice",
         class_year: ClassYear::Senior,
@@ -38,13 +40,63 @@ const OLIN_STUDENTS: [Student; 5] = [
         class_year: ClassYear::Senior,
         gpa: 0.0,
     },
+    Student {
+        name: "Anna",
+        class_year: ClassYear::FirstYear,
+        gpa: 4.0,
+    },
+    Student {
+        name: "Hannah",
+        class_year: ClassYear::FirstYear,
+        gpa: 4.0,
+    },
+    Student{
+        name: "Lorin",
+        class_year: ClassYear::Junior,
+        gpa: 3.6,
+    }
 ];
 
-fn get_average_gpa() -> f32 {}
+fn get_average_gpa() -> f32 {
+    let mut average: f32 = 0.0;
+    let mut num: f32 = 0.0;
+    for student in OLIN_STUDENTS {
+        if student.class_year != ClassYear::FirstYear{
+            average += student.gpa;
+            num +=1.0;
+        }
+    
+    }
+    average/num
+}
 
-fn get_num_excel_students_for_class(class_year: ClassYear) -> u32 {}
+fn get_num_excel_students_for_class(class_year: ClassYear) -> u32 {
+    let mut num_excel = 0;
+    let average = get_average_gpa();
+    for student in OLIN_STUDENTS{
+        if student.class_year == class_year && student.gpa > average{
+          num_excel +=1;
+        }
+    }
+    num_excel
+}
 
-fn get_best_class() -> ClassYear {}
+fn get_best_class() -> ClassYear {
+    let excel: [u32;3] = [get_num_excel_students_for_class(ClassYear::Sophomore),
+    get_num_excel_students_for_class(ClassYear::Junior),get_num_excel_students_for_class(ClassYear::Senior)];
+    let mut greatest = 0;
+    for i in 0..3 {
+        if excel[i] >= excel[greatest]{
+            greatest = i;
+        }
+    }
+    match greatest {
+        0 =>ClassYear::Sophomore,
+        1 =>ClassYear::Junior,
+        2 =>ClassYear::Senior,
+        _ => ClassYear::Senior,
+    }
+}
 
 // Do not modify below here
 #[cfg(test)]
