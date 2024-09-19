@@ -291,7 +291,7 @@ The result of 2 & 27 is 2
 Please enter the first number:
 0xF8
 Please enter the second number:
-0x3A
+fmt
 Please enter the desired operation:
 |
 The result of 248 | 58 is 250
