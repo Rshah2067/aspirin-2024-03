@@ -1,10 +1,12 @@
 use std::io;
+#[derive(PartialEq,Debug)]
 enum Operation {
     And,
     Or,
     Xor,
     Invalid,
 }
+#[derive(PartialEq,Debug)]
 enum Inputformat {
     Binary,
     Numeric,
@@ -35,7 +37,7 @@ pub fn run() {
     calculator = determine_input_type(&store_input(), calculator, 2);
     preform_operation(calculator);
 }
-fn preform_operation(mut calc: Calculator) {
+fn preform_operation(mut calc: Calculator) ->Calculator{
     match calc.op {
         Operation::Or => {
             calc.output = calc.input1 | calc.input2;
@@ -43,6 +45,7 @@ fn preform_operation(mut calc: Calculator) {
                 "The result of {} | {} is {}",
                 calc.input1, calc.input2, calc.output
             );
+            calc
         }
         Operation::Xor => {
             calc.output = calc.input1 ^ calc.input2;
@@ -50,6 +53,7 @@ fn preform_operation(mut calc: Calculator) {
                 "The result of {} ^ {} is {}",
                 calc.input1, calc.input2, calc.output
             );
+            calc
         }
         Operation::And => {
             calc.output = calc.input1 & calc.input2;
@@ -57,11 +61,14 @@ fn preform_operation(mut calc: Calculator) {
                 "The result of {} & {} is {}",
                 calc.input1, calc.input2, calc.output
             );
+            calc
         }
-        Operation::Invalid => println!("Provide Valid Input"),
+        Operation::Invalid => {
+            println!("Provide Valid Input");
+            calc
+        },
     }
 }
-
 fn request_for_input(input_number: u32) {
     match input_number {
         1 => println!("Please enter first number:"),
@@ -159,9 +166,9 @@ fn determine_input_operation(raw: &str) -> Operation {
                 _ => {
                     let three_char = &input[0..3];
                     match three_char {
-                        "And" => Operation::And,
+                        "AND" => Operation::And,
                         "and" => Operation::And,
-                        "Xor" => Operation::Xor,
+                        "XOR" => Operation::Xor,
                         "xor" => Operation::Xor,
                         _ => Operation::Invalid,
                     }
@@ -169,4 +176,102 @@ fn determine_input_operation(raw: &str) -> Operation {
             }
         }
     }
+}
+mod tests{
+    use crate::calculator::{
+        determine_input_operation, determine_input_type, Calculator, Inputformat, Operation
+    };
+
+    use super::preform_operation;
+    #[test]
+    fn test_determine_input_operation(){
+        assert_eq!(determine_input_operation("^"),Operation::Xor);
+        assert_eq!(determine_input_operation("|"),Operation::Or);
+        assert_eq!(determine_input_operation("&"),Operation::And);
+        assert_eq!(determine_input_operation("AND"),Operation::And);
+        assert_eq!(determine_input_operation("and"),Operation::And);
+        assert_eq!(determine_input_operation("XOR"),Operation::Xor);
+        assert_eq!(determine_input_operation("xor"),Operation::Xor);
+        assert_eq!(determine_input_operation("or"),Operation::Or);
+        assert_eq!(determine_input_operation("OR"),Operation::Or);
+        assert_eq!(determine_input_operation("gibberish"),Operation::Invalid);
+    }
+    #[test]
+    fn test_determine_input_type(){
+        let mut Calc: Calculator = Calculator{
+            input1: 0,
+            input2: 0,
+            output: 0,
+            inputform: Inputformat::Invalid,
+            op: Operation::Invalid,
+        };
+        //Creating test cases
+        let input_num = String::from("5");
+        let input_hex = String::from("0xF8");
+        let input_binary = String::from("0b011");
+        let input_gibberish = String::from("Hello World");
+        //testing numeric
+        Calc = determine_input_type(&input_num, Calc, 1);
+        assert_eq!(Calc.input1,5);
+        assert_eq!(Calc.inputform,Inputformat::Numeric);
+        //testing hex
+        Calc = determine_input_type(&input_hex, Calc, 1);
+        assert_eq!(Calc.input1,248);
+        assert_eq!(Calc.inputform,Inputformat::Hex);
+        //testing Binary
+        Calc = determine_input_type(&input_binary, Calc, 1);
+        assert_eq!(Calc.input1,3);
+        assert_eq!(Calc.inputform,Inputformat::Binary);
+        //resseting Calc input field to default
+        Calc.input1 = 0;
+        //testing gibberish
+        Calc = determine_input_type(&input_gibberish, Calc, 1);
+        assert_eq!(Calc.input1,0);
+        assert_eq!(Calc.inputform,Inputformat::Invalid);
+        
+    }
+    #[test]
+    fn test_preform_operation(){
+        //Case 1 XOR
+        let calc: Calculator = Calculator{
+            input1: 12,
+            input2: 32,
+            output: 0,
+            inputform: Inputformat::Invalid,
+            op: Operation::Xor,
+        };
+        let xor_test:Calculator = preform_operation(calc);
+        assert_eq!(xor_test.output, 44);
+        //Case 2 AND
+        let calc: Calculator = Calculator{
+            input1: 2,
+            input2: 27,
+            output: 0,
+            inputform: Inputformat::Invalid,
+            op: Operation::And,
+        };
+        let and_test:Calculator = preform_operation(calc);
+        assert_eq!(and_test.output,2);
+        //Case 3 Or
+        let calc: Calculator = Calculator{
+            input1: 248,
+            input2: 58,
+            output: 0,
+            inputform: Inputformat::Invalid,
+            op: Operation::Or,
+        };
+        let or_test:Calculator = preform_operation(calc);
+        assert_eq!(or_test.output,250);
+        //Case 4 Invalid Operation
+        let calc: Calculator = Calculator{
+            input1: 2,
+            input2: 27,
+            output: 0,
+            inputform: Inputformat::Invalid,
+            op: Operation::Invalid,
+        };
+        let invalid_test:Calculator = preform_operation(calc);
+        assert_eq!(invalid_test.output,0);        
+    }
+
 }
