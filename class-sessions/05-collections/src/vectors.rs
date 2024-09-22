@@ -2,12 +2,35 @@ use std::cmp::Ordering;
 
 #[allow(dead_code)]
 fn get_fibonacci(fibonacci_size: usize) -> Vec<u32> {
+    // let  vec = [1];
+    // for i in [0..fibonacci_size]{
+
+    // }
+    // let mut iter = vec.iter().scan(1,|state,&x|){
+
+    // }
     todo!()
 }
 
 #[allow(dead_code)]
 fn binary_search(arr: Vec<u8>, search_val: u8) -> usize {
-    todo!()
+    let mut pos = arr.len()/2;
+    while (pos >= 0 && pos <= arr.len()&& arr[pos]!=search_val){
+        pos = match search_val.cmp(&arr[pos]) {
+            Ordering::Equal =>{
+                pos
+            },
+            Ordering::Less =>{
+                pos -= 1;
+                pos
+            },
+            Ordering::Greater =>{
+                pos += 1;
+                pos
+            },
+        };
+    }
+    pos
 }
 
 #[allow(dead_code)]

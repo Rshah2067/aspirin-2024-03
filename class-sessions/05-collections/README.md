@@ -18,7 +18,7 @@ You can test your fibonacci sequence with the following command:
 cargo test vectors::tests::test_get_fibonacci
 ```
 ### 1.1. Binary Search
-Your next task is to implement a binary search (DSA throwback) in the `binary_search` function of `vector.rs`. This function takes in a vector, `arr`, and a `search_val` and turns the index of `search_val` in `arr`. For those that need a referesher, check out [this link](https://www.geeksforgeeks.org/binary-search/).
+Your next task is to implement a binary search (DSA throwback) in the `binary_search` function of `vector.rs`. This function takes in a vector, `arr`, and a `search_val` and turns the index of `search_val` in `arr`. For those that need a referesher, check out [this link](https://wwwcargo.geeksforgeeks.org/binary-search/).
 
 You can test your binary search with the following command:
 ```bash

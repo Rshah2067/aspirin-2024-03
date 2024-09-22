@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-mod basics;
-mod doubly_linked_list;
+//mod basics;
+//mod doubly_linked_list;
 mod mutables;
-mod singly_linked_list;
+//mod singly_linked_list;
 
 // SOLUTIONS
 //

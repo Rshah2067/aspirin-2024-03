@@ -1,30 +1,47 @@
+use std::{char, iter, option};
+
+
 /// Take ownership of the passed in string and print it
-fn takes_ownership_and_prints() {
-    todo!();
+fn takes_ownership_and_prints(input: String) {
+    println!("{}",input);
 }
 
 /// Take a string slice and return the first letter, or None in the case
 /// of a blank string
-fn first_letter() {
-    todo!();
+fn first_letter(input: &[&str]) ->Option<&&str> {
+    match input.iter().next(){
+        Some(char) =>Some(char),
+        None =>None
+    }
 }
 
 type Student = (String, u32);
 
 /// Given a reference to a student, return the student's name
-fn get_name() {
-    todo!();
+fn get_name(input: &Student) ->String {
+   (*input.0).to_string()
 }
 
 /// Given a slice of i32s, return the sum of the elements
-fn slice_sum() {
-    todo!();
+fn slice_sum(input :&[i32]) -> i32 {
+    let mut sum:i32 = 0;
+    for i in input {
+        sum += *i;
+    }
+    sum
 }
 
 /// Given a string slice, look for a substring, and return a slice of the first
 /// occurrence of the substring (return None if the substring is not found)
-fn find_in_string() {
-    todo!();
+fn find_in_string(string:&str,substring:String) ->&str{
+    match string.find(&substring){
+        Some(num) =>(string[num..substring.len()]),
+        None =>{
+            let output("None");
+            output
+        } 
+    }
+    todo!()
 }
 
 // DO NOT MODIFY BELOW THIS LINE
