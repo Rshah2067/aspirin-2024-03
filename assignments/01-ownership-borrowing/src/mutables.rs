@@ -1,25 +1,24 @@
-use std::string;
 
 /// Increments a mutable i32 reference by 1. On overflow, wraps around.
 fn increments(input: &mut i32) {
-    if(*input == i32::MAX){
+    if *input == i32::MAX {
         *input = i32::MIN;
-    }
-    else{
+    } else {
         *input += 1;
     }
 }
 
 /// Given two mutable i32 references, swap their values
-fn swap(one: &mut i32,two: &mut i32) {
+fn swap(one: &mut i32, two: &mut i32) {
     let temp = *one;
+    std::mem::swap(&mut (*one), &mut (*two));
     *one = *two;
     *two = temp;
 }
 
 /// Given a mutable string slice, strip all vowels and digits
-fn strip_vowels_and_digits(input:&mut str) -> String{
-    let mut  copy = String::new();
+fn strip_vowels_and_digits(input: &mut str) -> String {
+    let mut copy = String::new();
     input.clone_into(&mut copy);
     strip_vowels(&mut copy);
     strip_digits(copy)
