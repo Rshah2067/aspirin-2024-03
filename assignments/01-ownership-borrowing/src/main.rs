@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 mod basics;
-mod doubly_linked_list;
+//mod doubly_linked_list;
 mod mutables;
 mod singly_linked_list;
 

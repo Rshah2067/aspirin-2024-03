@@ -57,7 +57,7 @@ Unit tests are included for these functions, and can be run with `cargo test`
 Now, we're going to put it all together and use what we know to make a linked stack - essentially a linked list, but we push and pop from the head to make it a little simpler.
 
 In `singly_linked_list.rs`, you'll find a LinkedStack struct that you'll need to fill in, and function signatures for the 4 functions you'll need to implement for LinkedStack - `new`, `push`, `pop`, and `drop`.
-
+d
 Unit tests are included for these functions, and can be run with `cargo test`
 
 ## 4. Doubly Linked Stack?
