@@ -1,3 +1,6 @@
+use std::iter;
+
+
 #[derive(Debug, PartialEq)]
 pub enum MatrixError {
     EmptyVector,
@@ -6,18 +9,94 @@ pub enum MatrixError {
 }
 
 fn dot_product_prescriptive(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, MatrixError> {
-    todo!()
+    if vec1.len() == 0 || vec2.len() == 0 {
+        return Err(MatrixError::EmptyVector)
+    }
+    else if vec1.len() != vec2.len() {
+        return Err(MatrixError::DimensionMismatch)
+    }
+    let mut i = 0;
+    let mut sum:f64 = 0.0;
+    while i<vec1.len() {
+        sum += vec1[i]*vec2[i];
+        i +=1;
+    }
+    return Ok(sum)
 }
 
 fn dot_product_functional(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, MatrixError> {
-    todo!()
-}
+    if vec1.len() == 0 || vec2.len() == 0 {
+        return Err(MatrixError::EmptyVector)
+    }
+    else if vec1.len() != vec2.len() {
+        return Err(MatrixError::DimensionMismatch)
+    }
+    let mut iter = vec2.iter();
+    let output: f64 = vec1.iter().fold(0.0, |acc:f64,a,|
+        match iter.next() {
+            Some(val) => acc + a*val,
+            None => acc,
+        });
+        return Ok(output);
+    }
 
 fn multiply_matrices(
     vec1: &Vec<Vec<f64>>,
     vec2: &Vec<Vec<f64>>,
 ) -> Result<Vec<Vec<f64>>, MatrixError> {
-    todo!()
+    if vec1.len() ==0 ||vec2.len() ==0{
+        return Err(MatrixError::EmptyVector)
+    }
+    let mut square = true;
+    let mut width = vec1[0].len();
+    for row in vec1 {
+        if (row.len() != width){
+            square = false;
+        }
+    }
+    width = vec2[0].len();
+    for row in vec2{
+        if (row.len() != width){
+            square = false;
+        } 
+    }
+    if !square{
+        return Err(MatrixError::InvalidShape);
+    }
+    if vec1[0].len() != vec2.len(){
+        return Err(MatrixError::DimensionMismatch)
+    }
+    // first rewrite matrix to be column wise
+    let mut columnwise: Vec<Vec<f64>> = vec![];
+    let mut i = 0;
+    while i < vec2[0].len(){
+        let mut column:Vec<f64> = vec![];
+        for row2 in vec2{
+            column.push(row2[i]);
+        }
+        columnwise.push(column);
+        i+=1;
+    }
+    //Actually do our matrix multiplication 
+    //for reach row of the first find the dot product with the second
+    let mut output: Vec<Vec<f64>> = vec![];
+    for row in vec1{
+        let mut out_row: Vec<f64> = vec![];
+        for column in &columnwise {
+            match dot_product_prescriptive(row, &column){
+                Err(_) =>{
+                    println!("fail");
+                },
+                Ok(float)=>{
+                    println!("dot products{}", float);
+                    out_row.push(float)
+                 },
+            }
+        }
+        output.push(out_row);
+    }
+    
+    return Ok(output);
 }
 
 #[cfg(test)]
