@@ -2,7 +2,7 @@
 fn longest_equal_sequence_prescriptive<T: PartialEq>(sequence: &[T]) -> i32 {
     let mut greatest_count = 0;
     let mut current_count = 0;
-    if sequence.len() == 0 {
+    if sequence.is_empty() {
         return 0;
     }
     let mut lastelement = &sequence[0];
@@ -25,14 +25,14 @@ fn longest_equal_sequence_prescriptive<T: PartialEq>(sequence: &[T]) -> i32 {
 }
 #[allow(dead_code)]
 fn longest_equal_sequence_functional<T: PartialEq>(sequence: &[T]) -> i32 {
-    if sequence.len() == 0 {
+    if sequence.is_empty() {
         return 0;
     }
     let output = sequence.iter().zip(sequence.iter().skip(1)).fold(
         (1, 1),
         |(mut current, mut greatest), a| {
             if a.0 == a.1 {
-                current = current + 1;
+                current += 1;
                 if current > greatest {
                     greatest = current
                 }
@@ -53,7 +53,7 @@ fn is_valid_paranthesis(paranthesis: &str) -> bool {
         let opening: Vec<_> = paranthesis.match_indices(pairs[i]).collect();
         let closing: Vec<_> = paranthesis.match_indices(pairs[i + 1]).collect();
         //if we have an equivilant amount of opening and closing brackets, check to make sure they align
-        if opening.len() == closing.len() && opening.len() != 0 {
+        if opening.len() == closing.len() && !opening.is_empty() {
             let mut j = 0;
             let len = opening.len();
             let mut left = opening.iter();
@@ -87,11 +87,11 @@ fn is_valid_paranthesis(paranthesis: &str) -> bool {
             return false;
         }
         //if there are zero then move on to the next set of characters
-        if opening.len() == closing.len() && opening.len() == 0 {
+        if opening.len() == closing.len() && opening.is_empty() {
             i += 2;
         }
     }
-    return true;
+    true
 }
 #[allow(dead_code)]
 fn longest_common_substring<'a>(first_str: &'a str, second_str: &'a str) -> &'a str {
@@ -100,7 +100,7 @@ fn longest_common_substring<'a>(first_str: &'a str, second_str: &'a str) -> &'a 
     let mut starting = 0;
     while starting < first_str.len() {
         let mut ending = first_str.len();
-        while ending >= starting + 1 {
+        while ending > starting {
             substrings.push(&first_str[starting..ending]);
             ending -= 1;
         }
@@ -121,7 +121,7 @@ fn longest_common_substring<'a>(first_str: &'a str, second_str: &'a str) -> &'a 
         }
     }
     println!("{:?}", output);
-    return output;
+    output
 }
 #[allow(dead_code)]
 fn longest_common_substring_multiple<'a>(strings: &'a [&str]) -> &'a str {
@@ -130,7 +130,7 @@ fn longest_common_substring_multiple<'a>(strings: &'a [&str]) -> &'a str {
     let mut starting = 0;
     while starting < first_str.len() {
         let mut ending = first_str.len();
-        while ending >= starting + 1 {
+        while ending > starting {
             substrings.push(&first_str[starting..ending]);
             ending -= 1;
         }

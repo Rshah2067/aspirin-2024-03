@@ -8,7 +8,7 @@ pub enum MatrixError {
 }
 #[allow(dead_code)]
 fn dot_product_prescriptive(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, MatrixError> {
-    if vec1.len() == 0 || vec2.len() == 0 {
+    if vec1.is_empty() || vec2.is_empty() {
         return Err(MatrixError::EmptyVector);
     } else if vec1.len() != vec2.len() {
         return Err(MatrixError::DimensionMismatch);
@@ -19,11 +19,11 @@ fn dot_product_prescriptive(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, Mat
         sum += vec1[i] * vec2[i];
         i += 1;
     }
-    return Ok(sum);
+    Ok(sum)
 }
 #[allow(dead_code)]
 fn dot_product_functional(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, MatrixError> {
-    if vec1.len() == 0 || vec2.len() == 0 {
+    if vec1.is_empty() || vec2.is_empty() {
         return Err(MatrixError::EmptyVector);
     } else if vec1.len() != vec2.len() {
         return Err(MatrixError::DimensionMismatch);
@@ -33,14 +33,14 @@ fn dot_product_functional(vec1: &Vec<f64>, vec2: &Vec<f64>) -> Result<f64, Matri
         Some(val) => acc + a * val,
         None => acc,
     });
-    return Ok(output);
+    Ok(output)
 }
 #[allow(dead_code)]
 fn multiply_matrices(
     vec1: &Vec<Vec<f64>>,
     vec2: &Vec<Vec<f64>>,
 ) -> Result<Vec<Vec<f64>>, MatrixError> {
-    if vec1.len() == 0 || vec2.len() == 0 {
+    if vec1.is_empty() || vec2.is_empty() {
         return Err(MatrixError::EmptyVector);
     }
     let mut square = true;
@@ -92,7 +92,7 @@ fn multiply_matrices(
         output.push(out_row);
     }
 
-    return Ok(output);
+    Ok(output)
 }
 
 #[cfg(test)]

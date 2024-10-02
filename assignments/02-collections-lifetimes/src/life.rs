@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 pub fn split_string<'a>(string: &'a str, delimeter: &str) -> Vec<&'a str> {
-    if string == "" {
-        return vec![];
+    if string.is_empty() {
+        vec![]
     } else {
         let output: Vec<&str> = string.split_terminator(delimeter).collect();
         output
@@ -16,8 +16,8 @@ struct Differences<'a> {
 }
 #[allow(dead_code)]
 fn find_differences<'a>(first_string: &'a str, second_string: &'a str) -> Differences<'a> {
-    let words_in_first = split_string(first_string, &" ");
-    let words_in_second = split_string(second_string, &" ");
+    let words_in_first = split_string(first_string, " ");
+    let words_in_second = split_string(second_string, " ");
     let mut only_in_first: Vec<&str> = vec![];
     let mut only_in_second: Vec<&str> = vec![];
     for word in words_in_first {
@@ -30,11 +30,11 @@ fn find_differences<'a>(first_string: &'a str, second_string: &'a str) -> Differ
             only_in_second.push(word);
         }
     }
-    let output = Differences {
-        only_in_first: only_in_first,
-        only_in_second: only_in_second,
-    };
-    output
+    
+    Differences {
+        only_in_first,
+        only_in_second,
+    }
 }
 #[allow(dead_code)]
 fn merge_names(first_name: &str, second_name: &str) -> String {
@@ -100,7 +100,7 @@ fn merge_names(first_name: &str, second_name: &str) -> String {
         buffer.push(second_vowel);
     }
     buffer.push_str(second_name_copy);
-    return buffer;
+    buffer
 }
 
 #[cfg(test)]
