@@ -1,19 +1,106 @@
-fn split_string(string: &str, delimeter: &str) -> Vec<&str> {
-    todo!()
+#[allow(dead_code)]
+pub fn split_string<'a>(string: &'a str, delimeter: &str) -> Vec<&'a str> {
+    if string.is_empty() {
+        vec![]
+    } else {
+        let output: Vec<&str> = string.split_terminator(delimeter).collect();
+        output
+    }
 }
 
 #[derive(PartialEq, Debug)]
-struct Differences {
-    only_in_first: Vec<&str>,
-    only_in_second: Vec<&str>,
+#[allow(dead_code)]
+struct Differences<'a> {
+    only_in_first: Vec<&'a str>,
+    only_in_second: Vec<&'a str>,
 }
-
-fn find_differences(first_string: &str, second_string: &str) -> Differences {
-    todo!()
+#[allow(dead_code)]
+fn find_differences<'a>(first_string: &'a str, second_string: &'a str) -> Differences<'a> {
+    let words_in_first = split_string(first_string, " ");
+    let words_in_second = split_string(second_string, " ");
+    let mut only_in_first: Vec<&str> = vec![];
+    let mut only_in_second: Vec<&str> = vec![];
+    for word in words_in_first {
+        if !second_string.contains(word) {
+            only_in_first.push(word);
+        }
+    }
+    for word in words_in_second {
+        if !first_string.contains(word) {
+            only_in_second.push(word);
+        }
+    }
+    
+    Differences {
+        only_in_first,
+        only_in_second,
+    }
 }
-
+#[allow(dead_code)]
 fn merge_names(first_name: &str, second_name: &str) -> String {
-    todo!()
+    let mut buffer = String::from("");
+    let vowels = ['a', 'e', 'i', 'o', 'u'];
+    //copy variables
+    let mut first_name_copy = &first_name[0..];
+    let mut second_name_copy = &second_name[0..];
+    let mut second_vowel: char = '1';
+    //checking to see if the first letter of the word is a vowel
+    match first_name_copy.chars().next() {
+        Some(char) => {
+            if vowels.contains(&char) {
+                buffer.push(char);
+                first_name_copy = &first_name_copy[1..];
+            }
+        }
+        None => {
+            //if the first string is empty return second word
+            buffer = second_name_copy.to_string();
+            return buffer;
+        }
+    };
+    match second_name_copy.chars().next() {
+        Some(char) => {
+            if vowels.contains(&char) {
+                second_vowel = char;
+                second_name_copy = &second_name_copy[1..];
+            }
+        }
+        None => {
+            //if the first string is empty return second word
+            buffer = first_name_copy.to_string();
+            return buffer;
+        }
+    };
+    //while either char.next is a vali
+    for char in first_name_copy.chars() {
+        //if the next char is not a vowel, add it to the buffer
+        if !vowels.contains(&char) {
+            buffer.push(char);
+        }
+        //once you hit a vowel - add the previously hit vowel
+        else {
+            if second_vowel.is_alphabetic() {
+                buffer.push(second_vowel);
+            }
+            let mut count = 0;
+            for second_char in second_name_copy.chars() {
+                if !vowels.contains(&second_char) {
+                    buffer.push(second_char);
+                    count += 1;
+                } else {
+                    buffer.push(char);
+                    second_vowel = second_char;
+                    second_name_copy = &second_name_copy[count + 1..];
+                    break;
+                }
+            }
+        }
+    }
+    if second_vowel.is_alphabetic() {
+        buffer.push(second_vowel);
+    }
+    buffer.push_str(second_name_copy);
+    buffer
 }
 
 #[cfg(test)]

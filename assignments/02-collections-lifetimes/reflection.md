@@ -1,0 +1,3 @@
+I personally found the prescriptive code to be easier to write, as I find that I instinctively break up problems into prescriptive commands instead of functions due 
+to the coding languages I have experience in. I think once you understand the functional syntax, the functional method is far more readable as it is shorter, and generally is closer to natural language. One downside from a software development perspective is that I found myself spending the time I saved writing less code
+searching rusts documentation for the exact right function due to some functions like fold not having super intuitive names. However, once I get more expereince with the language I know I will more easily be able use the functional side of Rust.
