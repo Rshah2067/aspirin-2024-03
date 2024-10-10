@@ -1,21 +1,21 @@
+
 use colored::Color;
 use colored::Colorize;
 use regex::Regex;
-use std::io::Write;
 pub trait Output {
     fn print_output(&mut self, desired_output: Vec<String>);
 }
-pub struct output_color {
+pub struct OutputColor {
     output: Vec<String>,
     needle: String,
     color: Color,
 }
-pub struct output_nocolor {
+pub struct OutputNoColor {
     output: Vec<String>,
 }
-impl output_color {
+impl OutputColor {
     pub fn new(needle: String, color: Color) -> Self {
-        let output = output_color {
+        let output = OutputColor {
             output: Vec::new(),
             needle: needle,
             color: color,
@@ -23,13 +23,13 @@ impl output_color {
         output
     }
 }
-impl output_nocolor {
+impl OutputNoColor {
     pub fn new() -> Self {
-        let ouput = output_nocolor { output: Vec::new() };
+        let ouput = OutputNoColor { output: Vec::new() };
         ouput
     }
 }
-impl Output for output_color {
+impl Output for OutputColor {
     fn print_output(&mut self, desired_output: Vec<String>) {
         //need to search for indices to color
         //check if needle is a regex or not
@@ -83,7 +83,7 @@ impl Output for output_color {
         }
     }
 }
-impl Output for output_nocolor {
+impl Output for OutputNoColor {
     fn print_output<'b>(&mut self, desired_output: Vec<String>) {
         desired_output.clone_into(&mut self.output);
         for line in desired_output {
@@ -92,21 +92,19 @@ impl Output for output_nocolor {
     }
 }
 mod test {
-    use std::clone;
-
     use super::*;
     #[test]
     fn test_output() {
         //create mock output lines
         let output = vec![String::from("look test blank")];
         //create mock interfaces
-        let mut no_color = output_nocolor::new();
+        let mut no_color = OutputNoColor::new();
         no_color.print_output(output.clone());
         //test uncolored
         assert!(output == no_color.output);
         //test colored by creating a mock input for each color
         //blue
-        let mut blue = output_color::new(String::from("test"), Color::Blue);
+        let mut blue = OutputColor::new(String::from("test"), Color::Blue);
         blue.print_output(output.clone());
         let mut blue_string = String::from("look ");
         blue_string.push_str(&String::from("test").blue());
@@ -114,7 +112,7 @@ mod test {
         let out_vec = vec![blue_string.clone()];
         assert!(out_vec == blue.output);
         //black
-        let mut black = output_color::new(String::from("test"), Color::Black);
+        let mut black = OutputColor::new(String::from("test"), Color::Black);
         black.print_output(output.clone());
         let mut black_string = String::from("look ");
         black_string.push_str(&String::from("test").blue());
@@ -122,18 +120,21 @@ mod test {
         let out_vec = vec![black_string.clone()];
         assert!(out_vec == black.output);
         //green
-        let mut green = output_color::new(String::from("test"), Color::Green);
+        let mut green = OutputColor::new(String::from("test"), Color::Green);
         green.print_output(output.clone());
         let mut green_string = String::from("look ");
         green_string.push_str(&String::from("test").green());
         green_string.push_str(" blank");
         let out_vec = vec![green_string.clone()];
+        assert!(out_vec == green.output);
         //yellow
-        let mut yellow = output_color::new(String::from("test"), Color::Yellow);
+        let mut yellow = OutputColor::new(String::from("test"), Color::Yellow);
         yellow.print_output(output.clone());
         let mut yellow_string = String::from("look ");
         yellow_string.push_str(&String::from("test").yellow());
         yellow_string.push_str(" blank");
         let out_vec = vec![yellow_string.clone()];
+        assert!(out_vec == yellow.output);
+
     }
 }

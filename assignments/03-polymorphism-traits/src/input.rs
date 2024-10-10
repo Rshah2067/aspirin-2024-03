@@ -1,3 +1,4 @@
+
 use anyhow::Ok;
 use anyhow::Result;
 use std::fs::File;
@@ -8,45 +9,44 @@ use std::path::PathBuf;
 pub trait Input {
     fn parse_input(&mut self) -> Result<Vec<String>>;
 }
-pub struct fileInput {
+pub struct FileInput {
     file_path: PathBuf,
     contents: Vec<String>,
 }
-pub struct stringInput {
+pub struct StringInput {
     contents: Vec<String>,
 }
 //constructors
-impl fileInput {
+impl FileInput {
     pub fn new(file_path: PathBuf) -> Self {
-        let output = fileInput {
+        let output = FileInput {
             file_path: file_path,
             contents: Vec::new(),
         };
         output
     }
 }
-impl stringInput {
+impl StringInput {
     pub fn new() -> Self {
-        let output = stringInput {
+        let output = StringInput {
             contents: Vec::new(),
         };
         output
     }
 }
-impl Input for fileInput {
+impl Input for FileInput {
     fn parse_input(&mut self) -> Result<Vec<String>> {
         //take the file path that is given and parse it into a vector of strings
-        let mut output: Vec<String> = Vec::new();
         let file = File::open(self.file_path.clone())?;
         let buf_reader = BufReader::new(file);
-        output = buf_reader
+        let output = buf_reader
             .lines()
             .map(|l: Result<String, io::Error>| l.unwrap())
             .collect();
         Ok(output)
     }
 }
-impl Input for stringInput {
+impl Input for StringInput {
     fn parse_input(&mut self) -> Result<Vec<String>> {
         let stdin = io::stdin();
         let buf_reader = BufReader::new(stdin);
@@ -64,7 +64,7 @@ mod tests {
         //create a mock parser
         let mut path = PathBuf::new();
         path.push("testfile");
-        let mut file_test = fileInput::new(path);
+        let mut file_test = FileInput::new(path);
         //Text inside of test file
         let result = vec![
             String::from("Test Test Test"),

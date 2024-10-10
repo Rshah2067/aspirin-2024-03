@@ -1,3 +1,4 @@
+
 use regex::{Regex, RegexBuilder};
 pub trait Searching {
     fn search<'a>(
@@ -7,26 +8,26 @@ pub trait Searching {
         ignore_case: bool,
     ) -> Vec<&'a String>;
 }
-pub struct regex_search<'a> {
+pub struct RegexSearch<'a> {
     needle: &'a str,
 }
-pub struct string_search<'a> {
+pub struct StringSearch<'a> {
     needle: &'a str,
 }
 //constructors
-impl<'a> regex_search<'a> {
+impl<'a> RegexSearch<'a> {
     pub fn new(needle: &'a str) -> Self {
-        let output = regex_search { needle: needle };
+        let output = RegexSearch { needle: needle };
         output
     }
 }
-impl<'a> string_search<'a> {
+impl<'a> StringSearch<'a> {
     pub fn new(needle: &'a str) -> Self {
-        let output = string_search { needle: needle };
+        let output = StringSearch { needle: needle };
         output
     }
 }
-impl<'a> Searching for regex_search<'a> {
+impl<'a> Searching for RegexSearch<'a> {
     fn search<'b>(
         &self,
         input: &'b Vec<String>,
@@ -59,7 +60,7 @@ impl<'a> Searching for regex_search<'a> {
         output
     }
 }
-impl<'a> Searching for string_search<'a> {
+impl<'a> Searching for StringSearch<'a> {
     fn search<'b>(
         &self,
         input: &'b Vec<String>,
@@ -107,8 +108,8 @@ mod test {
             String::from("look test blank"),
             String::from("fun fun fun"),
         ];
-        let string_searcher = string_search::new(&needle_string);
-        let regex_searcher = regex_search::new(&needle_regex);
+        let string_searcher = StringSearch::new(&needle_string);
+        let regex_searcher = RegexSearch::new(&needle_regex);
         //regular (no flags)
         assert!(
             vec![&String::from("look test blank")]
