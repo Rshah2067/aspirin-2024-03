@@ -136,7 +136,7 @@ impl AspirinEatsDb {
 mod tests {
 
     use super::*;
- 
+
     fn get_test_order() -> Order {
         Order {
             id: None,
