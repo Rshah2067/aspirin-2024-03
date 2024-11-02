@@ -1,3 +1,5 @@
+use std::alloc::{alloc, dealloc, realloc, Layout};
+
 struct MyVec<T> {
     ptr: *mut T,
     size: usize,
@@ -7,36 +9,96 @@ struct MyVec<T> {
 impl<T> MyVec<T> {
     const CAPACITY_INCREMENTS: usize = 4;
 
-    fn new() -> Self {
-        todo!()
+    pub fn new() -> Self {
+        Self {
+            ptr: std::ptr::null_mut(),
+            size: 0,
+            capacity: 0,
+        }
     }
 
     fn with_capacity(capacity: usize) -> Self {
-        todo!()
+        Self { ptr: std::ptr::null_mut(),
+             size: 0,
+             capacity: capacity
+             }
     }
 
     fn reserve(&mut self, additional: usize) {
-        todo!()
+        let layout = Layout::array::<T>(additional).expect("Could theoretically overflow ");
+        let initial_ptr = unsafe { alloc(layout) };
+        self.ptr = initial_ptr as _;
     }
 
     fn push(&mut self, value: T) {
-        todo!()
+        // Ensure that the capacity of the vector is sufficient to add another
+        // value
+        if self.capacity == self.size {
+            self.expand_capacity();
+        }
+
+        // SAFETY: Pointer should be within the bounds of allocation because of the previous
+        // capacity expansion check
+        unsafe {
+            let new_elem_ptr = self.pointer_to_elem(self.size);
+            new_elem_ptr.write(value);
+        }
+        self.size +=1;
     }
 
     fn pop(&mut self) -> Option<T> {
-        todo!()
+        if self.size == 0 {
+            None
+        } else {
+            self.size -= 1;
+            // SAFETY: due to the allocation with this module, we are certain
+            // that there will be memory at the specific offset to the ptr
+            let pop_elem_ptr = unsafe { self.pointer_to_elem(self.size) };
+
+            Some(unsafe { pop_elem_ptr.read() })
+        }
     }
 
-    fn get(&self, index: usize) -> Option<T> {
-        todo!()
+    fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.size || self.size ==0{
+            None
+        }
+        else{
+            unsafe{
+                Some(&*self.pointer_to_elem(index))
+            }
+        }
     }
 
     fn expand_capacity(&mut self) {
-        todo!()
+        if self.capacity == 0 {
+            let layout = Layout::array::<T>(Self::CAPACITY_INCREMENTS).expect("size is four");
+            // SAFETY: layout will never have a size of 0
+            let initial_ptr = unsafe { alloc(layout) };
+            self.ptr = initial_ptr as _;
+            self.capacity += 4;
+        } else {
+            let new_capacity = self
+                .capacity
+                .checked_add(Self::CAPACITY_INCREMENTS)
+                .expect("no capacity overflow");
+
+            let old_layout =
+                Layout::array::<T>(self.capacity).expect("already created this layout");
+            let new_layout =
+                Layout::array::<T>(new_capacity).expect("already checked for no overflow");
+
+            // SAFETY: verified that the ptr is the new, old layout was used for previous
+            // allocation, new size must be greater than zero since capacity has incremented
+            let new_ptr = unsafe { realloc(self.ptr as _, old_layout, new_layout.size()) };
+            self.ptr = new_ptr as _;
+            self.capacity +=4;
+        }
     }
 
+    /// SAFETY: index must be non-zero and not overflow the increment to `self.ptr`
     unsafe fn pointer_to_elem(&self, index: usize) -> *mut T {
-        todo!()
+        self.ptr.add(index)
     }
 }
 
@@ -55,7 +117,7 @@ mod tests {
 
         for i in 0..10 {
             my_vec.push(i);
-            assert_eq!(Some(i), my_vec.get(i));
+            assert_eq!(Some(&i), my_vec.get(i));
         }
 
         for i in 0..10 {
