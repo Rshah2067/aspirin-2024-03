@@ -22,7 +22,7 @@ pub struct Order {
 
 /// Struct that represents an incoming order request to be added to the database. Separate from the
 /// Order struct because many of the fields will be generated for new orders
-#[derive(Deserialize, FromStrAsJson)]
+#[derive(Deserialize, FromStrAsJson, Debug, PartialEq)]
 pub struct OrderRequest {
     /// Customer Name
     pub customer: String,
