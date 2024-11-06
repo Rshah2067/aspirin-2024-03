@@ -6,4 +6,6 @@ pub enum ThreadPoolError {
     ZeroThreads,
     #[error("Failed to send job to worker")]
     Send,
+    #[error("Requested to many threads, Ran out of System Resources to Allocate")]
+    ThreadOverload,
 }
