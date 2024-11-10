@@ -1,4 +1,8 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+
 use std::os::raw::c_void;
+
 struct SerialPort{
     BaudRate:BaudRate,
     CharacterSize:CharacterSize,
