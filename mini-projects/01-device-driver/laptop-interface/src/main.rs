@@ -3,6 +3,10 @@ mod libSerialFFI;
 use std::ffi::CString;
 use libSerialFFI::*;
 mod error;
+
+mod controller;
+
+
 fn main() {
     match list_ports(){
         Ok(list)=>println!("{:?}",list),
@@ -19,4 +23,3 @@ fn main() {
         port.inspect_err(|e| eprint!("{}",e));
     }
 }
-
