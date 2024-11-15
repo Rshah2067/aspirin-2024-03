@@ -11,6 +11,7 @@ struct sp_port{
     port:[u8;0] //Creating an Opaque Struct that has nothing in ti
 }
 //wrapper for struct that allows us to pass it through functions
+#[allow(dead_code)]
 pub struct SerialPort{
     sp_port:*mut sp_port
 }
@@ -21,18 +22,36 @@ impl SerialPort{
         let mut port:*mut sp_port = ptr::null_mut();
         let result:sp_return;
         unsafe{
-            result = sp_get_port_by_name(name.as_ptr(), port);
+            result = sp_get_port_by_name(name.as_ptr(), &mut port);
+        }
+        //Check to see if the port is null due to there not being one with given name
+        if port.is_null(){
+            return Err(SerialError::MEM)
         }
         match result{
             //Success
             sp_return::SP_OK =>{
-                Ok(SerialPort{sp_port:port})
+               Ok(SerialPort{sp_port:port})
             },
             //Any Errror
-            _ =>{
-                Err(SerialError::FailedToFind)
-            }
+            sp_return::SP_ERR_ARG=>Err(SerialError::ARG),
+            sp_return::SP_ERR_FAIL =>Err(SerialError::FAIL),
+            sp_return::SP_ERR_MEM =>Err(SerialError::MEM),
+            sp_return::SP_ERR_SUPP =>Err(SerialError::SUPP),
         }
+    }
+    pub fn open(&self,mode:sp_mode)->Result<(),SerialError>{
+        let result:sp_return;
+        unsafe{
+            result = sp_open(self.sp_port, mode);
+        }
+        match result{
+            sp_return::SP_OK=>Ok(()),
+            sp_return::SP_ERR_ARG=>Err(SerialError::ARG),
+            sp_return::SP_ERR_FAIL=>Err(SerialError::FAIL),
+            sp_return::SP_ERR_MEM=>Err(SerialError::MEM),
+            sp_return::SP_ERR_SUPP=>Err(SerialError::SUPP),
+        }   
     }
     
 }
@@ -46,7 +65,7 @@ enum sp_return {
     SP_ERR_SUPP,
 }
 #[repr(C)]
-enum sp_mode{
+pub enum sp_mode{
     SP_MODE_READ,
     SP_MODE_WRITE,
     SP_MODE_READ_WRITE, 
@@ -63,34 +82,42 @@ enum sp_flowcontrol{
 extern "C"{
     fn sp_get_port_name(port:*mut sp_port)->*mut c_char;
     fn sp_list_ports(list:*mut *mut *mut sp_port) ->sp_return;
-    fn sp_get_port_by_name(PORT_NAMEL:*const c_char, port:*mut sp_port) ->sp_return;
+    fn sp_get_port_by_name(PORT_NAMEL:*const c_char, port:*mut *mut sp_port) ->sp_return;
     fn sp_open(sp_port:*mut sp_port,mode:sp_mode)->sp_return;
     fn sp_set_baudrate(sp_port:*mut sp_port,buadrate:usize) ->sp_return;
     fn sp_set_bits(sp_port:*mut sp_port,bit:usize) ->sp_return;
     fn sp_set_flow_control(sp_port:*mut sp_port,control:sp_flowcontrol) ->sp_return;
     fn sp_non_blocking_write(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->sp_return;
     fn sp_non_blocking_read(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->sp_return;
+    fn sp_free_port_list(ports:*mut *mut sp_port);
+    fn sp_free_port(port:*mut sp_port);
+
 }
 pub fn list_ports()->Result<Vec<String>,SerialError>{
-    let port_list:*mut *mut *mut sp_port = ptr::null_mut();
+    let mut port_list:*mut *mut sp_port = ptr::null_mut();
     let mut ports = Vec::new();
     let result:sp_return;
     unsafe {
-        result = sp_list_ports(port_list);
+        result = sp_list_ports(&mut port_list);
     }
     match result{
         sp_return::SP_OK =>{
             let mut i = 0;
             unsafe{
                 while !(*port_list.add(i)).is_null() {
-                    let port = **port_list.add(i);
-                    let name_ptr = sp_get_port_name(port);
-                    let name = CStr::from_ptr(name_ptr).to_string_lossy();
+                    let port = *port_list.add(i);
+                    let name_ptr = sp_get_port_name( port);
+                    let name = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
                     ports.push(name);
+                    i += 1;
                 };
+                sp_free_port_list(port_list);
             };
-            todo!()
+          Ok(ports)
         },
-        _ =>Err(SerialError::FailedToList)
+        sp_return::SP_ERR_ARG=>Err(SerialError::ARG),
+        sp_return::SP_ERR_FAIL =>Err(SerialError::FAIL),
+        sp_return::SP_ERR_MEM =>Err(SerialError::MEM),
+        sp_return::SP_ERR_SUPP =>Err(SerialError::SUPP),
     }
 }
