@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2.161"
+thiserror = "2.0.3"
 
 [build-dependencies]
 cc = "1.0"
