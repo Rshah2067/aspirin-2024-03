@@ -3,6 +3,7 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
+use std::ptr::null_mut;
 
 use crate::error::SerialError;
 
@@ -53,6 +54,27 @@ impl SerialPort{
             sp_return::SP_ERR_SUPP=>Err(SerialError::SUPP),
         }   
     }
+    //Pass in a mutable reference to an array and the number of bits you want to read
+    pub fn read<'a>(&'a self,buff:&'a mut [u8],count:u16)->Result<&mut[u8],SerialError>{
+        let result:isize;  
+        println!("0");
+        unsafe{
+            result = sp_nonblocking_read(self.sp_port, buff.as_mut_ptr() as *mut c_char, count);
+            println!("1");
+        }
+        //check to see if we had success
+        if result >=0{
+            return Ok(buff)
+        }
+        //check to see if we have successfully read
+        match result{
+            -1=>Err(SerialError::ARG),
+            -2 =>Err(SerialError::FAIL),
+            -3 =>Err(SerialError::MEM),
+            -4 =>Err(SerialError::SUPP),
+            _ => Err(SerialError::ARG),
+        }
+    }
     
 }
 //enum representing failure cases of function calls
@@ -87,8 +109,8 @@ extern "C"{
     fn sp_set_baudrate(sp_port:*mut sp_port,buadrate:usize) ->sp_return;
     fn sp_set_bits(sp_port:*mut sp_port,bit:usize) ->sp_return;
     fn sp_set_flow_control(sp_port:*mut sp_port,control:sp_flowcontrol) ->sp_return;
-    fn sp_non_blocking_write(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->sp_return;
-    fn sp_non_blocking_read(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->sp_return;
+    fn sp_nonblocking_write(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->sp_return;
+    fn sp_nonblocking_read(sp_port:*mut sp_port,buf:*mut c_char,count:u16) ->isize;
     fn sp_free_port_list(ports:*mut *mut sp_port);
     fn sp_free_port(port:*mut sp_port);
 
