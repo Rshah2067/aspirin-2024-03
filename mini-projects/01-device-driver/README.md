@@ -46,7 +46,7 @@ The following outlines the state machine running on the raspberry pico (the vari
     - "set all LEDs": This turns on all three LEDs.
     - "clear all LEDs": This turns off all three LEDs.
 
-    From this state, the device can be transitioned to `DeviceState::Running` by sending "stop controller" via serial.
+    From this state, the device can be transitioned to `DeviceState::Running` by sending "start controller" via serial.
 
 3. `DeviceState::Running` signifies that a game is actually being played. This means that the commander needs to know the current state of each button so that it can update the position of each player. That means that within this state, the controller sends the state of each button (as a bitmask) over serial. The value sent over is mapped as following (most significant bit to least significant bit):
     - Bit 3: The state of the Northwest button.

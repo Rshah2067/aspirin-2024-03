@@ -3,7 +3,6 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
-use std::ptr::null_mut;
 
 use crate::error::SerialError;
 
@@ -56,24 +55,21 @@ impl SerialPort{
         }   
     }
     //Pass in a mutable reference to an array and the number of bits you want to read
-    pub fn read<'a>(&'a self,buff:&'a mut [u8],count:u16)->Result<&[u8],SerialError>{
-        let result:isize;  
+    pub fn read<'a>(&'a self,buff:&'a mut [u8],count:u16)->Result<String,SerialError>{
+        let result:sp_return;  
         println!("0");
         unsafe{
-            result = sp_nonblocking_read(self.sp_port, buff.as_mut_ptr() as *mut c_char, count);
+            result = sp_blocking_read(self.sp_port, buff.as_mut_ptr() as *mut c_char, count,2);
             println!("1");
         }
-        //check to see if we had success
-        if result >=0{
-            return Ok(buff)
-        }
+    
         //check to see if we have successfully read
         match result{
-            -1=>Err(SerialError::ARG),
-            -2 =>Err(SerialError::FAIL),
-            -3 =>Err(SerialError::MEM),
-            -4 =>Err(SerialError::SUPP),
-            _ => Err(SerialError::ARG),
+            sp_return::SP_ERR_ARG=>Err(SerialError::ARG),
+            sp_return::SP_ERR_FAIL=>Err(SerialError::FAIL),
+            sp_return::SP_ERR_MEM=>Err(SerialError::MEM),
+            sp_return::SP_ERR_SUPP =>Err(SerialError::SUPP),
+            _ => Ok(String::from_utf8_lossy(buff).to_string()),
         }
     }
     pub fn write(&self,message:String)->Result<(),SerialError>{
@@ -83,13 +79,13 @@ impl SerialPort{
       unsafe{
         //convert the u8 to a i8
         let signedbuf:& [i8] = std::slice::from_raw_parts(buf.as_ptr() as *const i8, count);
-        result = sp_nonblocking_write(self.sp_port,signedbuf.as_ptr(), count as u16);
+        result = sp_blocking_write(self.sp_port,signedbuf.as_ptr(), count as u16,2);
       } 
       match result{
-        -1=>Err(SerialError::ARG),
-        -2 =>Err(SerialError::FAIL),
-        -3 =>Err(SerialError::MEM),
-        -4 =>Err(SerialError::SUPP),
+        sp_return::SP_ERR_ARG=>Err(SerialError::ARG),
+        sp_return::SP_ERR_FAIL =>Err(SerialError::FAIL),
+        sp_return::SP_ERR_MEM =>Err(SerialError::MEM),
+        sp_return::SP_ERR_SUPP =>Err(SerialError::SUPP),
         _ => Ok(()),
         
       }
@@ -99,11 +95,11 @@ impl SerialPort{
 //enum representing failure cases of function calls
 #[repr(C)]
 enum sp_return {
-    SP_OK ,
-    SP_ERR_ARG,	
-    SP_ERR_FAIL,	
-    SP_ERR_MEM,
-    SP_ERR_SUPP,
+    SP_OK =0,
+    SP_ERR_ARG = -1,	
+    SP_ERR_FAIL =-2,	
+    SP_ERR_MEM = -3,
+    SP_ERR_SUPP =-4,
 }
 #[repr(C)]
 pub enum sp_mode{
@@ -128,8 +124,8 @@ extern "C"{
     fn sp_set_baudrate(sp_port:*mut sp_port,buadrate:usize) ->sp_return;
     fn sp_set_bits(sp_port:*mut sp_port,bit:usize) ->sp_return;
     fn sp_set_flow_control(sp_port:*mut sp_port,control:sp_flowcontrol) ->sp_return;
-    fn sp_nonblocking_write(sp_port:*mut sp_port,buf:*const c_char,count:u16) ->isize;
-    fn sp_nonblocking_read(sp_port:*mut sp_port,buf:*mut c_char,count:u16) ->isize;
+    fn sp_blocking_write(sp_port:*mut sp_port,buf:*const c_char,count:u16,timout:usize) ->sp_return;
+    fn sp_blocking_read(sp_port:*mut sp_port,buf:*mut c_char,count:u16,timeout:usize) ->sp_return;
     fn sp_free_port_list(ports:*mut *mut sp_port);
     fn sp_free_port(port:*mut sp_port);
 
