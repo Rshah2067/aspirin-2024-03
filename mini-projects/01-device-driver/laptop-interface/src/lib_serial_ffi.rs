@@ -90,6 +90,9 @@ impl SerialPort{
         
       }
     }
+    pub fn Drop(){
+
+    }
     
 }
 //enum representing failure cases of function calls

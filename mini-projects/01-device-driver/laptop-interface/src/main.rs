@@ -1,7 +1,7 @@
 
-mod libSerialFFI;
+mod lib_serial_ffi;
 use std::ffi::CString;
-use libSerialFFI::*;
+use lib_serial_ffi::*;
 mod error;
 
 mod controller;
