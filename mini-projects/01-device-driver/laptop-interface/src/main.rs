@@ -15,11 +15,15 @@ fn main() {
     let port = SerialPort::new(CString::from(c"/dev/ttyACM0"));
     if let Ok(serialport) = port{
         match serialport.open(sp_mode::SP_MODE_READ_WRITE){
-            Ok(_) =>println!("Connected"),
-            Err(e) =>eprint!("{}",e)
+            Ok(_) =>{
+                serialport.write(String::from("init controller"));
+                serialport.write(String::from("set ready led"));
+            },
+            Err(e) =>eprint!("Failed to open Port{}",e)
         }
     }
     else{
         port.inspect_err(|e| eprint!("{}",e));
     }
+
 }
