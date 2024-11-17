@@ -8,19 +8,12 @@ fn main() {
         Ok(list)=>println!("{:?}",list),
         Err(e) =>eprint!("Failed to List Ports: {}",e)
     }
-    let port = SerialPort::new(CString::from(c"/dev/ttyACM1"));
+    let port = SerialPort::new(CString::from(c"/dev/ttyACM0"));
     if let Ok(serialport) = port{
         match serialport.open(sp_mode::SP_MODE_READ_WRITE){
             Ok(_) =>{
-                //now try to
-                let mut buff:[u8;1024] = [0;1024];
-                match serialport.read(&mut buff, 100){
-                    Ok(_) =>{
-                        println!("2");
-                        println!("{:?}",buff)
-                    },
-                    Err(e) =>eprint!("Failed to Read{}",e)
-                }
+                serialport.write(String::from("init controller"));
+                serialport.write(String::from("set ready led"));
             },
             Err(e) =>eprint!("Failed to open Port{}",e)
         }
