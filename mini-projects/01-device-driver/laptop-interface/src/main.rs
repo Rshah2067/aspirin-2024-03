@@ -5,7 +5,7 @@ use std::ffi::CString;
 mod error;
 
 mod controller;
-
+mod game_manager;
 fn main() {
     match list_ports() {
         Ok(list) => println!("{:?}", list),

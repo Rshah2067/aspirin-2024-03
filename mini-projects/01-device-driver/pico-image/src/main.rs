@@ -28,7 +28,8 @@ use usbd_serial::SerialPort;
 // Misc
 use core::fmt::Write;
 use heapless::String;
-
+//Interupts
+use hal::gpio::Interrupt::EdgeHigh;
 // Enum for Device State Machine
 #[repr(i32)]
 #[derive(Clone, Copy)]
@@ -68,10 +69,10 @@ fn main() -> ! {
     let mut green_led = pins.gpio16.into_push_pull_output();
 
     // Buttons
-    let mut left_button = pins.gpio13.into_pull_down_input();
-    let mut top_button = pins.gpio15.into_pull_down_input();
-    let mut bottom_button = pins.gpio14.into_pull_down_input();
-    let mut right_button = pins.gpio12.into_pull_down_input();
+    let mut ne_button = pins.gpio13.into_pull_down_input();
+    let mut se_button = pins.gpio15.into_pull_down_input();
+    let mut sw_button = pins.gpio14.into_pull_down_input();
+    let mut nw_button = pins.gpio12.into_pull_down_input();
 
     // Set up the watchdog driver - needed by the clock setup code
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
@@ -246,21 +247,21 @@ fn main() -> ! {
                 if current_time - last_button_state_transmission_time > SERIAL_TX_PERIOD {
                     last_button_state_transmission_time = current_time;
                     let mut button_text: String<20> = String::new();
-                    let button_data = (left_button
+                    let button_data = (ne_button
                         .is_high()
                         .expect("GPIOs should never fail to read state")
                         as u8)
-                        + ((top_button
+                        + ((se_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
                             << 1)
-                        + ((bottom_button
+                        + ((sw_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
                             << 2)
-                        + ((right_button
+                        + ((nw_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
