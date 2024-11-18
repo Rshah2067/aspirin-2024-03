@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use log;
 
-struct ControllerManager {
+pub struct ControllerManager {
     controllers: Vec<Controller>,
     input_receiver: Receiver<String>,
     output_sender: Arc<Mutex<Sender<String>>>,
@@ -59,7 +59,8 @@ impl ControllerManager {
         let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
 
         thread::spawn(move || -> Result<(), ControllerError> {
-            let port = SerialPort::new(CString::new(thread_controller.serial_port.clone()).unwrap())?;
+            let port =
+                SerialPort::new(CString::new(thread_controller.serial_port.clone()).unwrap())?;
 
             port.open(sp_mode::SP_MODE_READ_WRITE)?;
             thread::sleep(Duration::from_millis(100));
@@ -177,6 +178,32 @@ impl ControllerManager {
             ControllerKind::Base
         }
     }
+
+    fn init_controller(&self, id: u32) -> Result<(), ControllerError> {
+        log::info!("Initializing controller with id: {}", id);
+        self.send_message_to_controller(id, String::from("init controller\n"))
+    }
+
+    fn reset_controller(&self, id: u32) -> Result<(), ControllerError> {
+        log::info!("Resetting controller with id: {}", id);
+        self.send_message_to_controller(id, String::from("reset controller\n"))
+    }
+
+    fn restart_controller(&self, id: u32) -> Result<(), ControllerError> {
+        log::info!("Restarting controller with id: {}", id);
+        self.send_message_to_controller(id, String::from("restart controller\n"))
+    }
+
+    fn stop_controller(&self, id: u32) -> Result<(), ControllerError> {
+        log::info!("Stopping controller with id: {}", id);
+        self.send_message_to_controller(id, String::from("stop controller\n"))
+    }
+
+    fn set_controller_led(&self, id: u32, led_state: LedState) -> Result<(), ControllerError> {
+        log::info!("Setting controller {} LED to: {:?}", id, led_state);
+        let message = format!("set led {}\n", led_state as u8);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -187,9 +214,10 @@ mod tests {
 
     #[test]
     fn test_connect_real_controller() {
-        let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
-            .is_test(true)
-            .try_init();
+        let _ =
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
+                .is_test(true)
+                .try_init();
 
         // Create a new ControllerManager
         let mut manager = ControllerManager::new();
@@ -234,7 +262,8 @@ mod tests {
 
         // Wait for some data from the controller
         let mut received_data = false;
-        for _ in 0..50 {  // Try for 5 seconds (50 * 100ms)
+        for _ in 0..50 {
+            // Try for 5 seconds (50 * 100ms)
             match manager.read_serial() {
                 Ok(Some(data)) => {
                     log::info!("Received data from controller: {:?}", data);
@@ -248,7 +277,10 @@ mod tests {
                 Err(e) => panic!("Failed to receive data from controller: {}", e),
             }
         }
-        assert!(received_data, "No data received from controller after 5 seconds");
+        assert!(
+            received_data,
+            "No data received from controller after 5 seconds"
+        );
 
         // Clean up
         manager.disconnect_controller(0);
