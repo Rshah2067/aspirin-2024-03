@@ -15,8 +15,8 @@ fn main() {
     if let Ok(serialport) = port {
         match serialport.open(sp_mode::SP_MODE_READ_WRITE) {
             Ok(_) => {
-                let _ = serialport.write(String::from("init controller"));
-                let _ = serialport.write(String::from("set ready led"));
+                let _ = serialport.write("init controller");
+                let _ = serialport.write("set ready led");
             }
             Err(e) => eprint!("Failed to open Port{}", e),
         }

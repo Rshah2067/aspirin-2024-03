@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
+use crate::error::{ControllerError, SerialError};
 use crate::lib_serial_ffi::*;
-use crate::error::{SerialError, ControllerError};
 use std::ffi::CString;
 use std::str;
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
@@ -13,17 +14,18 @@ use log;
 
 struct ControllerManager {
     controllers: Vec<Controller>,
-    input_receiver: std::sync::mpsc::Receiver<String>,
-    output_sender: Arc<Mutex<std::sync::mpsc::Sender<String>>>,
+    input_receiver: Receiver<String>,
+    output_sender: Arc<Mutex<Sender<String>>>,
+    controller_senders: Vec<Option<Sender<String>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ControllerKind {
     Base,
     Advanced,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Controller {
     name: String,
     id: u32,
@@ -38,6 +40,7 @@ impl ControllerManager {
             controllers: Vec::new(),
             input_receiver: output_receiver,
             output_sender: Arc::new(Mutex::new(output_sender)),
+            controller_senders: Vec::new(),
         }
     }
 
@@ -51,48 +54,93 @@ impl ControllerManager {
             kind: ControllerManager::determine_controller_kind(serial_port),
         };
 
-        let output_sender_clone = Arc::clone(&self.output_sender);
-        let serial_port_clone = controller.serial_port.clone();
+        let thread_controller = controller.clone();
+        let thread_sender = self.output_sender.clone();
+        let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
 
         thread::spawn(move || -> Result<(), ControllerError> {
-            let port = SerialPort::new(CString::new(serial_port_clone.clone()).unwrap())?;
+            let port = SerialPort::new(CString::new(thread_controller.serial_port.clone()).unwrap())?;
 
             port.open(sp_mode::SP_MODE_READ_WRITE)?;
-            
+            thread::sleep(Duration::from_millis(100));
             log::info!("Port opened successfully in read/write mode");
-            port.write(String::from("init controller"))?;
-            port.write(String::from("set ready led"))?;
+            port.write("stop controller\n")?;
+            thread::sleep(Duration::from_millis(10));
+            port.write("reset\n")?;
+            thread::sleep(Duration::from_millis(10));
+            port.write("init controller\n")?;
+            thread::sleep(Duration::from_millis(10));
+            port.write("set ready led\n")?;
 
             let mut buffer = vec![0u8; 1024];
             loop {
-                let count = buffer.len().min(u16::MAX as usize) as u16;
-                match port.read(&mut buffer, count) {
-                    Ok(read_slice) => {
-                        let bytes_read = read_slice.len();
+                match rx.try_recv() {
+                    Ok(message) => {
+                        log::debug!("Received message for controller: {}", message);
+                        port.write(&message)?;
+                    }
+                    Err(TryRecvError::Empty) => {
+                        // No message received, continue with read operation
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        log::warn!("Channel to controller disconnected, exiting thread");
+                        break;
+                    }
+                }
+                log::trace!("Reading from serial port");
+                match port.read(&mut buffer, 100) {
+                    Ok(bytes_read) => {
                         if bytes_read > 0 {
-                            let received_data = str::from_utf8(read_slice)?.to_string();
-                            output_sender_clone.lock().unwrap().send(received_data)?;
+                            let received_data =
+                                String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+                            log::debug!("Read {} bytes from serial port", bytes_read);
+                            thread_sender.lock().unwrap().send(received_data)?;
                         }
                     }
                     Err(e) => {
-                        return Err(ControllerError::SerialReadError {
-                            port: serial_port_clone.clone(),
-                            error: e as isize,
-                        });
+                        match e {
+                            SerialError::Timeout => {
+                                // Timeout is normal, just continue the loop
+                                log::trace!("Read timeout, continuing");
+                                thread::sleep(Duration::from_millis(100));
+                            }
+                            _ => {
+                                log::error!("Error reading from serial port: {:?}", e);
+                                return Err(e.into());
+                            }
+                        }
                     }
                 }
-                thread::sleep(Duration::from_millis(100));
             }
+            Ok(())
         });
 
         log::debug!("Created controller: {:?}", controller);
         self.controllers.push(controller);
+        self.controller_senders.push(Some(tx));
         log::info!("Controller connected successfully");
         Ok(())
     }
 
+    fn send_message_to_controller(&self, id: u32, message: String) -> Result<(), ControllerError> {
+        if let Some(Some(sender)) = self.controller_senders.get(id as usize) {
+            sender.send(message).map_err(ControllerError::from)?;
+            log::debug!("Message sent to controller {} successfully", id);
+            Ok(())
+        } else {
+            log::warn!("Controller {} not found or disconnected", id);
+            Err(ControllerError::ControllerNotFound)
+        }
+    }
+
     fn disconnect_controller(&mut self, id: u32) {
+        if let Err(e) = self.send_message_to_controller(id, String::from("stop controller\n")) {
+            log::error!("Failed to send reset message to controller {}: {}", id, e);
+        }
         log::info!("Disconnecting controller with id: {}", id);
+        if let Some(sender) = self.controller_senders.get_mut(id as usize) {
+            *sender = None; // This will close the channel
+        }
         let initial_count = self.controllers.len();
         self.controllers.retain(|controller| controller.id != id);
         let final_count = self.controllers.len();
@@ -103,11 +151,15 @@ impl ControllerManager {
         }
     }
 
-    fn read_serial(&self) -> Result<String, ControllerError> {
-        let data = self.input_receiver
-            .recv_timeout(std::time::Duration::from_secs(5))?;
-        log::debug!("Read serial data: {}", data);
-        Ok(data)
+    fn read_serial(&self) -> Result<Option<String>, ControllerError> {
+        match self.input_receiver.try_recv() {
+            Ok(data) => {
+                log::debug!("Read serial data: {}", data);
+                Ok(Some(data))
+            }
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn determine_controller_kind(serial_port: &str) -> ControllerKind {
@@ -135,23 +187,26 @@ mod tests {
 
     #[test]
     fn test_connect_real_controller() {
-        let _ = env_logger::Builder::new()
-            .is_test(true) // Ensures logs are printed in test mode
-            .init();
+        let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
+            .is_test(true)
+            .try_init();
+
         // Create a new ControllerManager
         let mut manager = ControllerManager::new();
 
         // Specify the actual serial port where your controller is connected
         // You may need to change this to match your system
-        //let real_port = "/dev/ttyUSB0";  // Example for Linux
+        // let real_port = "/dev/ttyUSB0";  // Example for Linux
         // let real_port = "COM3";  // Example for Windows
         let real_port = "/dev/cu.usbmodem101"; // Example for macOS
 
         // Connect to the real controller
-        manager.connect_controller(real_port);
+        if let Err(e) = manager.connect_controller(real_port) {
+            panic!("Failed to connect to controller: {}", e);
+        }
 
-        // Give some time for the connection to establish
-        thread::sleep(Duration::from_secs(2));
+        // Give more time for the connection to establish
+        thread::sleep(Duration::from_millis(1000));
 
         // Assert that the controller was added
         assert_eq!(manager.controllers.len(), 1);
@@ -161,19 +216,39 @@ mod tests {
         assert_eq!(controller.serial_port, real_port);
         assert_eq!(controller.id, 0);
 
-        // Wait for some data from the controller
-        match manager.read_serial() {
-            Ok(data) => {
-                println!("Received data from controller: {}", data);
-                // Add assertions here based on the expected data format from your controller
-            }
-            Err(e) => panic!("Failed to receive data from controller: {}", e),
+        // Switch the controller into run mode
+        match manager.send_message_to_controller(0, String::from("set all leds\n")) {
+            Ok(_) => log::info!("'set all leds' command sent successfully"),
+            Err(e) => log::warn!("Failed to send 'set all leds' command: {:?}", e),
         }
 
-        // Optionally, test sending a command to the controller
-        // This depends on your controller's protocol
-        // let command = "some_command";
-        // manager.send_command_to_controller(0, command);
+        thread::sleep(Duration::from_millis(10));
+
+        match manager.send_message_to_controller(0, String::from("start controller\n")) {
+            Ok(_) => log::info!("'start controller' command sent successfully"),
+            Err(e) => log::warn!("Failed to send 'start controller' command: {:?}", e),
+        }
+
+        // Give some time for the commands to take effect
+        thread::sleep(Duration::from_millis(5000));
+
+        // Wait for some data from the controller
+        let mut received_data = false;
+        for _ in 0..50 {  // Try for 5 seconds (50 * 100ms)
+            match manager.read_serial() {
+                Ok(Some(data)) => {
+                    log::info!("Received data from controller: {:?}", data);
+                    received_data = true;
+                    break;
+                }
+                Ok(None) => {
+                    // No data available, wait and try again
+                    thread::sleep(Duration::from_millis(100));
+                }
+                Err(e) => panic!("Failed to receive data from controller: {}", e),
+            }
+        }
+        assert!(received_data, "No data received from controller after 5 seconds");
 
         // Clean up
         manager.disconnect_controller(0);
