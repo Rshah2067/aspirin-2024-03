@@ -1,4 +1,5 @@
 use crate::{controller::*, list_ports};
+use regex::Regex;
 struct Game{
     state:game_state,
     controller_manager:ControllerManager,
@@ -35,7 +36,14 @@ impl Game{
         match list_ports(){
             Ok(ports) =>{
                 //using regexes
-                //ports.iter().filter(predicate)
+                let regex = Regex::new(r"^/dev/ttyACM(\d+)$").unwrap();
+                //am calling unwrap as regex garuntees sucessful parsing
+               let validports:Vec<u32> = ports
+                .iter()
+                .filter_map(|s| regex.captures(s).and_then(|caps| caps.get(1).map(|m| m.as_str().parse::<u32>().ok().unwrap())))
+                .collect();
+                //go through the connected ports and if there is a connected port that is not an existing port, connect to it
+                
             },
             Err(e) =>(),
         }
