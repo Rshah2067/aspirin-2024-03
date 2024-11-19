@@ -204,7 +204,7 @@ impl ControllerManager {
         let message = format!("set led {}\n", led_state as u8);
         Ok(())
     }
-    fn get_controller_ids(&self) ->Vec<u32>{
+    pub fn get_controller_ids(&self) ->Vec<u32>{
         let output = self.controllers.iter().map(|s|s.id).collect();
         output
     }   
