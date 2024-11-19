@@ -44,7 +44,7 @@ impl ControllerManager {
         }
     }
 
-    fn connect_controller(&mut self, serial_port: &str) -> Result<(), ControllerError> {
+    pub fn connect_controller(&mut self, serial_port: &str) -> Result<(), ControllerError> {
         log::info!("Connecting to controller on serial port: {}", serial_port);
 
         let controller = Controller {

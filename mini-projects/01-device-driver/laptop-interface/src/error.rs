@@ -1,6 +1,13 @@
 use thiserror::Error;
 use std::sync::mpsc::{RecvTimeoutError, SendError, TryRecvError};
 use std::str::Utf8Error;
+#[derive(Error,Debug)]
+pub enum ModuleError{
+    #[error("Serial Error")]
+    SerialError(SerialError),
+    #[error("Controller Error")]
+    ControllerError(ControllerError)
+}
 #[derive(Error, Debug)]
 pub enum SerialError {
     #[error("SP_ERR_ARG: Invalid argument")]
