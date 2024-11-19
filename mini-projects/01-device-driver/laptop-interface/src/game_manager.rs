@@ -1,9 +1,17 @@
+use std::io::{self, Read};
+
 use crate::{controller::*, error::{ControllerError, ModuleError, SerialError}, list_ports};
+use log::log;
 use regex::Regex;
 struct Game{
     state:game_state,
     controller_manager:ControllerManager,
     //players:<Vec<String>,
+}
+struct Player{
+    position:(u32,u32),
+    score:u32,
+    player_number:u32,
 }
 enum game_state{
     //Pregame is the phase where the user is connecting/initializing controllers
@@ -19,9 +27,25 @@ impl Game{
     pub fn run_game(&mut self){
         match self.state{
             game_state::pregame =>{
-                //connect to a new controller, if a new controller is added 
-                //ask the user if all controllers are connected and players are ready to begin
-        
+                //connect to a new controller, if a new controller is added ask if this if the player wants to start
+                match self.connect_new_controller(){
+                    Ok(Some(port)) => {
+                        println!("Connected Player {}",port);
+                        println!("If All Controllers are Connected, Start Game by Typing \"ready\"");
+                    }
+                    Ok(None) =>(),
+                    Err(e) =>eprintln!("Error Connecting Controller {} Try Again",e)
+                };
+                let mut input = String::new();
+                //Check if the User has indicated to start the game
+                io::stdin()
+                    .read_line(&mut input)
+                    .expect("Failed to Read Line");
+                if input == String::from("ready"){
+                    //Move State to in game
+                    log::info!("Starting Game");
+                    self.state = game_state::ingame;
+                }
             }
             game_state::ingame =>{
                 //actual game logic
@@ -32,7 +56,7 @@ impl Game{
         }
     }
     //helper function that monitors for new controller additions
-    fn connect_new_controller(&mut self)->Result<(),ModuleError>{
+    fn connect_new_controller(&mut self)->Result<Option<u32>,ModuleError>{
         //check to see what ports exist and if any new ones pop up, connect to them
         match list_ports(){
             Ok(ports) =>{
@@ -51,12 +75,12 @@ impl Game{
                         let mut serial_string:String = String::from("/dev/ttyACM");
                         serial_string.push_str(&port.to_string());
                         match self.controller_manager.connect_controller(&serial_string){
-                            Ok(()) =>return  Ok(()),
+                            Ok(()) =>return  Ok(Some(port)),
                             Err(e) =>return Err(ModuleError::ControllerError(e))
                         }
                     }
                 };
-                Ok(())
+                Ok(None)
             },
             Err(e) =>Err(ModuleError::SerialError(e)),
         }
