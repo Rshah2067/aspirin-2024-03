@@ -1,12 +1,14 @@
-use std::io::{self, Read};
+use std::{io::{self, Read}, sync::mpsc::{self, Receiver}, thread};
 
 use crate::{controller::*, error::{ControllerError, ModuleError, SerialError}, list_ports};
-use log::log;
+use log::{info, log};
 use regex::Regex;
-struct Game{
+pub struct Game{
     state:game_state,
     controller_manager:ControllerManager,
     players:Vec<Player>,
+    //Reciever from thread that is monitoring Stdin for user input
+    stdin_reciever:Receiver<String>,
 }
 struct Player{
     position:(u32,u32),
@@ -31,12 +33,18 @@ enum game_state{
     ingame,
     //the current game round has ended and results are displayed, the user is then presented with the opperunity
     postgame,
+    //user decides to end game
+    endgame,
 }
 impl Game{
     //Constructor which is run at start
-    pub fn new()->Self{
-        
-        Game { state: game_state::pregame, controller_manager: ControllerManager::new(),players:Vec::new()}
+    pub fn new()->Self{ 
+        Game { 
+            state: game_state::pregame,
+            controller_manager: ControllerManager::new(),
+            players:Vec::new(),
+            stdin_reciever:spawn_stdin_channel()
+        }
     }
     //Based on currrent game state does different thing
     pub fn run_game(&mut self){
@@ -53,16 +61,18 @@ impl Game{
                 };
                 let mut input = String::new();
                 //Check if the User has indicated to start the game
-                io::stdin()
-                    .read_line(&mut input)
-                    .expect("Failed to Read Line");
-                if input == String::from("ready"){
-                    //Move State to in game
-                    log::info!("Starting Game");
-                    self.state = game_state::ingame;
+                let mut input = String::new();
+                match self.stdin_reciever.try_recv(){
+                    Ok(user) =>input = user,
+                    //If we don't have any user input we move on
+                    Err(_) =>(),
                 }
-                else if input != "ready" && input != ""{
-
+                //see what to do with user input
+                match input.as_str(){
+                    "ready" =>self.move_to_game(),
+                    //if there is no input do nothing
+                   ""=> (),
+                    _ =>println!("Invalid Input Please Enter \"ready\" to start game")
                 }
             }
             game_state::ingame =>{
@@ -71,8 +81,12 @@ impl Game{
             game_state::postgame =>{
                 //game has ended, display results and give user options on how to proceed
             }
+            game_state::endgame =>{
+                //User wants to stop playing, shut down and signal to main loop to end
+            }
         }
     }
+    //TODO port to controller Manager
     //helper function that monitors for new controller additions
     fn connect_new_controller(&mut self)->Result<Option<u32>,ModuleError>{
         //check to see what ports exist and if any new ones pop up, connect to them
@@ -114,8 +128,15 @@ impl Game{
         self.players.push(Player::new(id,player_number));
         player_number
     }
-    //creates the 
-    fn move_to_pregame(){
+    //Sets game state to pregram and resets Player points and positions. Prompts User For input
+    fn move_to_pregame(&mut self){
+        //go through all players and reset their scores and state
+        for player in self.players.iter_mut(){
+            player.position = (0,0);
+            player.score = 0;
+        };
+        self.state = game_state::pregame;
+        log::info!("Moved To Pregame");
 
     }
     //Command Controllers to move to gain and switch internal state
@@ -132,4 +153,24 @@ impl Game{
         log::info!("Starting Game");
         self.state = game_state::ingame;
     }
+
+
+}
+//Function that creates a reciever for a thread that monitors stdin, during different game phases this monitors
+//different game functions 
+fn spawn_stdin_channel()->Receiver<String>{
+    let (tx,rx) = mpsc::channel();
+    //thread that captures std::in and sends a message with string inputs
+    thread::spawn(move||{
+        loop{
+            let mut buffer = String::new();
+            io::stdin()
+                .read_line(&mut buffer)
+                .expect("Failed to Read Line");
+            //this should always be sucessful, because the reciever should be dropped at the same
+            //as the tx
+            tx.send(buffer).unwrap();
+        }   
+    });
+    rx
 }
