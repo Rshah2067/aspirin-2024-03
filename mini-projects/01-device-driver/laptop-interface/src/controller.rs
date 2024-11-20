@@ -179,7 +179,7 @@ impl ControllerManager {
         }
     }
 
-    fn init_controller(&self, id: u32) -> Result<(), ControllerError> {
+    pub fn init_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Initializing controller with id: {}", id);
         self.send_message_to_controller(id, String::from("init controller\n"))
     }

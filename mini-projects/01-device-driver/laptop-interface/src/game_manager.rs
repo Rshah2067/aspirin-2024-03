@@ -6,12 +6,18 @@ use regex::Regex;
 struct Game{
     state:game_state,
     controller_manager:ControllerManager,
-    //players:<Vec<String>,
+    players:Vec<Player>,
 }
 struct Player{
     position:(u32,u32),
     score:u32,
     player_number:u32,
+    controller_number:u32,
+}
+impl Player{
+    fn new(id:u32,player:u32)->Self{
+        Player { position: (0,0), score: (0), player_number:(player),controller_number: (id) }
+    }
 }
 enum game_state{
     //Pregame is the phase where the user is connecting/initializing controllers
@@ -74,8 +80,12 @@ impl Game{
                     if !ids.contains(&port){
                         let mut serial_string:String = String::from("/dev/ttyACM");
                         serial_string.push_str(&port.to_string());
+                        //return the port ID of the connected control
                         match self.controller_manager.connect_controller(&serial_string){
-                            Ok(()) =>return  Ok(Some(port)),
+                            Ok(()) =>return {
+                                
+                                Ok(Some(port))
+                            },
                             Err(e) =>return Err(ModuleError::ControllerError(e))
                         }
                     }
@@ -84,5 +94,19 @@ impl Game{
             },
             Err(e) =>Err(ModuleError::SerialError(e)),
         }
+    }
+    //Command Controllers to move to gain and switch internal state
+    fn move_to_game(&mut self){
+        //Intialize Controllers
+        let ids = self.controller_manager.get_controller_ids();
+        for id in ids{
+            match self.controller_manager.init_controller(id){
+                Ok(_) => (),
+                Err(e) =>eprint!("Error Initializing Controller, Check that they were all Plugged in")
+            }
+        }
+        //Move State to in game
+        log::info!("Starting Game");
+        self.state = game_state::ingame;
     }
 }
