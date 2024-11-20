@@ -11,11 +11,15 @@ struct Game{
 struct Player{
     position:(u32,u32),
     score:u32,
-    player_number:u32,
+    //A player has a player number and a controller number as the controller number corresponds to the
+    //actual serial port that the player connected their controller to. The player number is the number
+    //player they are (the first to connect is 1, the second is 2 etc) This is more similar to how most 
+    //video games work where the player number is not corresponding to the hardware port of the controller
+    player_number:usize,
     controller_number:u32,
 }
 impl Player{
-    fn new(id:u32,player:u32)->Self{
+    fn new(id:u32,player:usize)->Self{
         Player { position: (0,0), score: (0), player_number:(player),controller_number: (id) }
     }
 }
@@ -29,14 +33,19 @@ enum game_state{
     postgame,
 }
 impl Game{
+    //Constructor which is run at start
+    pub fn new()->Self{
+        
+        Game { state: game_state::pregame, controller_manager: ControllerManager::new(),players:Vec::new()}
+    }
     //Based on currrent game state does different thing
     pub fn run_game(&mut self){
         match self.state{
             game_state::pregame =>{
                 //connect to a new controller, if a new controller is added ask if this if the player wants to start
                 match self.connect_new_controller(){
-                    Ok(Some(port)) => {
-                        println!("Connected Player {}",port);
+                    Ok(Some(player)) => {
+                        println!("Connected Player {}",player);
                         println!("If All Controllers are Connected, Start Game by Typing \"ready\"");
                     }
                     Ok(None) =>(),
@@ -51,6 +60,9 @@ impl Game{
                     //Move State to in game
                     log::info!("Starting Game");
                     self.state = game_state::ingame;
+                }
+                else if input != "ready" && input != ""{
+
                 }
             }
             game_state::ingame =>{
@@ -80,10 +92,11 @@ impl Game{
                     if !ids.contains(&port){
                         let mut serial_string:String = String::from("/dev/ttyACM");
                         serial_string.push_str(&port.to_string());
-                        //return the port ID of the connected control
+                        //return the player number correspondign to the connected control
                         match self.controller_manager.connect_controller(&serial_string){
                             Ok(()) =>return {
-                                
+                                //add the player corrosponding to the controller
+                                self.add_player(port);
                                 Ok(Some(port))
                             },
                             Err(e) =>return Err(ModuleError::ControllerError(e))
@@ -94,6 +107,16 @@ impl Game{
             },
             Err(e) =>Err(ModuleError::SerialError(e)),
         }
+    }
+    //Adds a new Player to the game
+    fn add_player(&mut self,id:u32)->usize{
+        let player_number = self.players.len()+1;
+        self.players.push(Player::new(id,player_number));
+        player_number
+    }
+    //creates the 
+    fn move_to_pregame(){
+
     }
     //Command Controllers to move to gain and switch internal state
     fn move_to_game(&mut self){

@@ -34,7 +34,7 @@ struct Controller {
 }
 
 impl ControllerManager {
-    fn new() -> ControllerManager {
+    pub fn new() -> ControllerManager {
         let (output_sender, output_receiver) = std::sync::mpsc::channel();
         ControllerManager {
             controllers: Vec::new(),
