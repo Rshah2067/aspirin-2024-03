@@ -25,6 +25,15 @@ enum ControllerKind {
     Advanced,
 }
 
+#[derive(Debug)]
+enum LedState {
+    Ready,
+    Set,
+    Go,
+    AllOn,
+    AllOff,
+}
+
 #[derive(Debug, Clone)]
 struct Controller {
     name: String,
@@ -58,20 +67,26 @@ impl ControllerManager {
         let thread_sender = self.output_sender.clone();
         let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
 
+        // Initialize controller before spawning thread
+        let controller_id = controller.id;
+        if let Err(e) = self.stop_controller(controller_id) {
+            log::error!("Failed to send stop command to controller {}: {}", controller_id, e);
+        }
+        if let Err(e) = self.reset_controller(controller_id) {
+            log::error!("Failed to send reset command to controller {}: {}", controller_id, e);
+        }
+        if let Err(e) = self.init_controller(controller_id) {
+            log::error!("Failed to send init command to controller {}: {}", controller_id, e);
+        }
+        if let Err(e) = self.set_controller_led(controller_id, LedState::Ready) {
+            log::error!("Failed to set LED state for controller {}: {}", controller_id, e);
+        }
+
         thread::spawn(move || -> Result<(), ControllerError> {
             let port =
                 SerialPort::new(CString::new(thread_controller.serial_port.clone()).unwrap())?;
 
             port.open(sp_mode::SP_MODE_READ_WRITE)?;
-            thread::sleep(Duration::from_millis(100));
-            log::info!("Port opened successfully in read/write mode");
-            port.write("stop controller\n")?;
-            thread::sleep(Duration::from_millis(10));
-            port.write("reset\n")?;
-            thread::sleep(Duration::from_millis(10));
-            port.write("init controller\n")?;
-            thread::sleep(Duration::from_millis(10));
-            port.write("set ready led\n")?;
 
             let mut buffer = vec![0u8; 1024];
             loop {
@@ -134,7 +149,7 @@ impl ControllerManager {
         }
     }
 
-    fn disconnect_controller(&mut self, id: u32) {
+    pub fn disconnect_controller(&mut self, id: u32) {
         if let Err(e) = self.send_message_to_controller(id, String::from("stop controller\n")) {
             log::error!("Failed to send reset message to controller {}: {}", id, e);
         }
@@ -184,24 +199,32 @@ impl ControllerManager {
         self.send_message_to_controller(id, String::from("init controller\n"))
     }
 
-    fn reset_controller(&self, id: u32) -> Result<(), ControllerError> {
+    pub fn reset_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Resetting controller with id: {}", id);
         self.send_message_to_controller(id, String::from("reset controller\n"))
     }
 
-    fn restart_controller(&self, id: u32) -> Result<(), ControllerError> {
+    pub fn restart_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Restarting controller with id: {}", id);
         self.send_message_to_controller(id, String::from("restart controller\n"))
     }
 
-    fn stop_controller(&self, id: u32) -> Result<(), ControllerError> {
+    pub fn stop_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Stopping controller with id: {}", id);
         self.send_message_to_controller(id, String::from("stop controller\n"))
     }
 
-    fn set_controller_led(&self, id: u32, led_state: LedState) -> Result<(), ControllerError> {
+    pub fn set_controller_led(&self, id: u32, led_state: LedState) -> Result<(), ControllerError> {
         log::info!("Setting controller {} LED to: {:?}", id, led_state);
-        let message = format!("set led {}\n", led_state as u8);
+        let command = match led_state {
+            LedState::Ready => "set ready led",
+            LedState::Set => "set set led",
+            LedState::Go => "set go led",
+            LedState::AllOn => "set all LEDs",
+            LedState::AllOff => "clear all LEDs",
+        };
+        let message = format!("{}\n", command);
+        self.send_message_to_controller(id, message)?;
         Ok(())
     }
     pub fn get_controller_ids(&self) ->Vec<u32>{
