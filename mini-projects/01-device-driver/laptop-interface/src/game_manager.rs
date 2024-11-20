@@ -25,7 +25,8 @@ impl Player{
         Player { position: (0,0), score: (0), player_number:(player),controller_number: (id) }
     }
 }
-enum game_state{
+#[derive(PartialEq)]
+pub enum game_state{
     //Pregame is the phase where the user is connecting/initializing controllers
     pregame,
     //in game is when we are actually playing the game and we are monitoring the output
@@ -45,6 +46,10 @@ impl Game{
             players:Vec::new(),
             stdin_reciever:spawn_stdin_channel()
         }
+    }
+    //returns the current state of the game (used to end game)
+    pub fn get_gamestate(& self)->&game_state{
+        &self.state
     }
     //Based on currrent game state does different thing
     pub fn run_game(&mut self){
@@ -77,7 +82,11 @@ impl Game{
             }
             game_state::ingame =>{
                 //actual game logic
+                //Check for New controller
                 //Poll each players controller
+               
+                //update player information and print current game state
+                
                 //check to see if users have indicated for game to end
                 let mut input = String::new();
                 //Check if the User has indicated to start the game
@@ -107,7 +116,7 @@ impl Game{
                 }
                 //see what to do with user input
                 match input.as_str(){
-                    "end" =>self.move_to_postgame(),
+                    "end" =>self.move_to_endgame(),
                     //if there is no input do nothing
                    ""=> (),
                     _ =>println!("Invalid Input Please Enter \"end\" to end game")
@@ -119,7 +128,8 @@ impl Game{
         }
     }
     //TODO port to controller Manager
-    //helper function that monitors for new controller additions
+    //helper function that monitors for new controller additions, returns a controller id if it connects
+    //a new controller
     fn connect_new_controller(&mut self)->Result<Option<u32>,ModuleError>{
         //check to see what ports exist and if any new ones pop up, connect to them
         match list_ports(){
@@ -202,7 +212,12 @@ impl Game{
         println!("To start a new game enter \"new game\" to stop playing enter \"end\"");
         self.state = game_state::postgame;
     }
+    //drops controller manager and all of the players and indicates for the main function to drop and exit
+    fn move_to_endgame(&mut self){
+        self.state = game_state::endgame;
+    }
 }
+
 //Function that creates a reciever for a thread that monitors stdin, during different game phases this monitors
 //different game functions 
 fn spawn_stdin_channel()->Receiver<String>{

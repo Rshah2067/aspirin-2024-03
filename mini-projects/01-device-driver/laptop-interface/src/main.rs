@@ -7,12 +7,14 @@ mod error;
 
 mod controller;
 mod game_manager;
+use game_manager::game_state;
 fn main() {
     let mut game = Game::new();
     //Main Loop
-    loop{
+    while *game.get_gamestate() != game_state::endgame{
         game.run_game();
     }
+    println!("Thank You For Playing!")
     // match list_ports() {
     //     Ok(list) => println!("{:?}", list),
     //     Err(e) => eprint!("Failed to List Ports: {}", e),
