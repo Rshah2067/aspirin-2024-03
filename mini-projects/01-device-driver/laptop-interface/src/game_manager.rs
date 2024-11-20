@@ -77,9 +77,41 @@ impl Game{
             }
             game_state::ingame =>{
                 //actual game logic
+                //Poll each players controller
+                //check to see if users have indicated for game to end
+                let mut input = String::new();
+                //Check if the User has indicated to start the game
+                let mut input = String::new();
+                match self.stdin_reciever.try_recv(){
+                    Ok(user) =>input = user,
+                    //If we don't have any user input we move on
+                    Err(_) =>(),
+                }
+                //see what to do with user input
+                match input.as_str(){
+                    "end" =>self.move_to_postgame(),
+                    //if there is no input do nothing
+                   ""=> (),
+                    _ =>println!("Invalid Input Please Enter \"end\" to end game")
+                }
             }
             game_state::postgame =>{
-                //game has ended, display results and give user options on how to proceed
+                //game has ended, monitor how to user wants to proceed
+                let mut input = String::new();
+                //Check if the User has indicated to start the game
+                let mut input = String::new();
+                match self.stdin_reciever.try_recv(){
+                    Ok(user) =>input = user,
+                    //If we don't have any user input we move on
+                    Err(_) =>(),
+                }
+                //see what to do with user input
+                match input.as_str(){
+                    "end" =>self.move_to_postgame(),
+                    //if there is no input do nothing
+                   ""=> (),
+                    _ =>println!("Invalid Input Please Enter \"end\" to end game")
+                }
             }
             game_state::endgame =>{
                 //User wants to stop playing, shut down and signal to main loop to end
@@ -153,8 +185,23 @@ impl Game{
         log::info!("Starting Game");
         self.state = game_state::ingame;
     }
-
-
+    //Move Controllers back to intialization state an
+    fn move_to_postgame(&mut self){
+        //move controllers
+        //Determine Winner
+        let  (mut winner,mut score) = (self.players[0].player_number,self.players[0].score);
+        for player in self.players.iter_mut(){
+            if player.score >score{
+                winner = player.player_number;
+                score = player.score;
+            }
+        }
+        //Print Results
+        println!("Game Over!");
+        println!("Player {} won with {} points",winner,score);
+        println!("To start a new game enter \"new game\" to stop playing enter \"end\"");
+        self.state = game_state::postgame;
+    }
 }
 //Function that creates a reciever for a thread that monitors stdin, during different game phases this monitors
 //different game functions 

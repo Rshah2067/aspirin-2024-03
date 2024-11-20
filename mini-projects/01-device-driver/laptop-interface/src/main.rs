@@ -8,10 +8,9 @@ mod error;
 mod controller;
 mod game_manager;
 fn main() {
-    let game = Game::new();
+    let mut game = Game::new();
     //Main Loop
     loop{
-        
         game.run_game();
     }
     // match list_ports() {
