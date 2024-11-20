@@ -198,7 +198,9 @@ impl ControllerManager {
         log::info!("Initializing controller with id: {}", id);
         self.send_message_to_controller(id, String::from("init controller\n"))
     }
-
+    pub fn get_controller_state(controller_id:u32) ->Result<controllerstate>{
+        todo!()
+    }
     pub fn reset_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Resetting controller with id: {}", id);
         self.send_message_to_controller(id, String::from("reset controller\n"))
