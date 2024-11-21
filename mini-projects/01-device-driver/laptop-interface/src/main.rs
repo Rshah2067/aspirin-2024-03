@@ -6,7 +6,10 @@ mod error;
 mod controller;
 mod game_manager;
 use game_manager::GameState;
+use env_logger;
+use log::LevelFilter;
 fn main() {
+    env_logger::builder().filter_level(log::LevelFilter::Trace);
     let mut game = Game::new();
     //Main Loop
     println!("Welcome to the Game!");

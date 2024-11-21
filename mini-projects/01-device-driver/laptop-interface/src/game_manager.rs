@@ -84,7 +84,7 @@ impl Game {
                 match self.controller_manager.connect_new_controller() {
                     Ok(Some(id)) => {
                         let player_number = self.add_player(id);
-                        info!("Connected Player {}", player_number);
+                        println!("Connected Player {}", player_number);
                         println!(
                             "If all controllers are connected, start the game by typing \"ready\"."
                         );
@@ -123,7 +123,7 @@ impl Game {
                 match self.controller_manager.connect_new_controller() {
                     Ok(Some(id)) => {
                         let player_number = self.add_player(id);
-                        info!("Connected Player {}", player_number);
+                        println!("Connected Player {}", player_number);
                     }
                     Ok(None) => (),
                     Err(e) => {
