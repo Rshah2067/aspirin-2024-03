@@ -1,7 +1,6 @@
-use crate::{controller::*, error::ModuleError, lib_serial_ffi::list_ports};
-use log::{debug, error, info, warn};
+use crate::controller::*;
+use log::{error, info, warn};
 use plotters::prelude::*;
-use regex::Regex;
 use std::{
     io::{self},
     sync::mpsc::{self, Receiver},

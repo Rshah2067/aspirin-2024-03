@@ -1,15 +1,13 @@
 #![allow(dead_code)]
-mod lib_serial_ffi;
-use game_manager::Game;
-mod error;
 
-mod controller;
-mod game_manager;
-use game_manager::GameState;
+
 use env_logger;
-use log::LevelFilter;
+use laptop_interface::game_manager::{Game, GameState};
+
 fn main() {
-    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let mut game = Game::new();
     //Main Loop
     println!("Welcome to the Game!");

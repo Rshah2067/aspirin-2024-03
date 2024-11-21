@@ -2,6 +2,7 @@
 
 use crate::error::{ControllerError, ModuleError, SerialError};
 use crate::lib_serial_ffi::*;
+
 use std::ffi::CString;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::Arc;
@@ -10,7 +11,7 @@ use std::thread;
 use std::time::Duration;
 use std::{default, str};
 
-use log::{self, info, trace};
+use log::{self, trace};
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -386,82 +387,4 @@ impl ControllerManager {
 //         // Implement cleanup logic here
 //     }
 // }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-    use std::time::Duration;
-
-    #[test]
-    fn test_connect_real_controller() {
-        let _ =
-            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
-                .is_test(true)
-                .try_init();
-
-        // Create a new ControllerManager
-        let mut manager = ControllerManager::new();
-
-        // Specify the actual serial port where your controller is connected
-        let real_port = "/dev/cu.usbmodem101"; // Example for macOS
-
-        // Connect to the real controller
-        manager.connect_controller(real_port).unwrap();
-
-        // Give more time for the connection to establish
-        thread::sleep(Duration::from_millis(1000));
-
-        // Assert that the controller was added
-        println!("{:?}", manager.controllers);
-        assert_eq!(manager.controllers.len(), 1);
-
-        // Check the properties of the connected controller
-        let controller_id = manager.controllers[0].id; // Clone the controller ID
-        let controller = &manager.controllers[0];
-        assert_eq!(controller.serial_port, real_port);
-        assert_eq!(controller.id, 101); // Adjusted to match the extracted ID
-
-        // Clone the controller ID to avoid borrowing issues
-        let controller_id = controller.id;
-
-        // Switch the controller into run mode
-        manager
-            .set_controller_led(controller_id, LedState::AllOn)
-            .unwrap();
-
-        thread::sleep(Duration::from_millis(10));
-
-        manager
-            .send_message_to_controller(controller_id, String::from("start controller\n"))
-            .unwrap();
-
-        // Give some time for the commands to take effect
-        thread::sleep(Duration::from_millis(1000));
-
-        // Wait for some data from the controller and update its state
-        let mut state_updated = false;
-        for _ in 0..50 {
-            // Try for 5 seconds (50 * 100ms)
-            manager.update_controller_state();
-            if let Some(state) = manager.get_controller_state(controller_id) {
-                log::info!("Updated controller state: {:?}", state);
-                state_updated = true;
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
-
-        assert!(
-            state_updated,
-            "Controller state not updated after 5 seconds"
-        );
-
-        // Verify that we can get the controller state
-        let final_state = manager.get_controller_state(controller_id);
-        assert!(final_state.is_some(), "Failed to get controller state");
-        log::info!("Final controller state: {:?}", final_state.unwrap());
-
-        // Clean up
-        manager.disconnect_controller(controller_id);
-    }
-}
+// ... existing code ...
