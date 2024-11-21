@@ -296,6 +296,11 @@ impl ControllerManager {
         self.send_message_to_controller(id, String::from("init controller\n"))
     }
 
+    pub fn start_controller(&self, id: u32) -> Result<(), ControllerError> {
+        log::info!("Starting controller with id: {}", id);
+        self.send_message_to_controller(id, String::from("start controller\n"))
+    }
+
     pub fn reset_controller(&self, id: u32) -> Result<(), ControllerError> {
         log::info!("Resetting controller with id: {}", id);
         self.send_message_to_controller(id, String::from("reset controller\n"))
