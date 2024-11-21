@@ -61,6 +61,7 @@ pub enum GameState {
 impl Game {
     /// Constructor which is run at start.
     pub fn new() -> Self {
+        println!("To start the game, enter \"ready\".");
         Game {
             state: GameState::Pregame,
             controller_manager: ControllerManager::new(),
@@ -80,7 +81,7 @@ impl Game {
         match self.state {
             GameState::Pregame => {
                 // Connect to a new controller using Game's helper method
-                match self.connect_new_controller() {
+                match self.controller_manager.connect_new_controller() {
                     Ok(Some(id)) => {
                         let player_number = self.add_player(id);
                         info!("Connected Player {}", player_number);
@@ -119,7 +120,7 @@ impl Game {
                 // Actual game logic
 
                 // Check for new controller
-                match self.connect_new_controller() {
+                match self.controller_manager.connect_new_controller() {
                     Ok(Some(id)) => {
                         let player_number = self.add_player(id);
                         info!("Connected Player {}", player_number);
@@ -221,51 +222,6 @@ impl Game {
         }
     }
 
-    /// Helper function that monitors for new controller additions, returns a controller ID if it connects a new controller.
-    fn connect_new_controller(&mut self) -> Result<Option<u32>, ModuleError> {
-        // Check to see what ports exist and if any new ones pop up, connect to them
-        match list_ports() {
-            Ok(ports) => {
-                // Get a list of controller IDs that are already connected
-                let ids = self.controller_manager.get_controller_ids();
-                // Using regex to filter valid ports
-                let regex = Regex::new(r"^/dev/ttyACM(\d+)$").unwrap();
-                debug!("Found Ports: {:?}", ports);
-                let validports: Vec<u32> = ports
-                    .iter()
-                    .filter_map(|s| {
-                        regex
-                            .captures(s)
-                            .and_then(|caps| caps.get(1))
-                            .and_then(|m| m.as_str().parse::<u32>().ok())
-                    })
-                    .collect();
-                debug!("Valid Ports: {:?}", validports);
-                // Connect to any new valid ports
-                for port in validports {
-                    if !ids.contains(&port) {
-                        let serial_string = format!("/dev/ttyACM{}", port);
-                        match self.controller_manager.connect_controller(&serial_string) {
-                            Ok(()) => {
-                                info!("Connected Controller on Port {}", port);
-                                let player_number = self.add_player(port);
-                                return Ok(Some(player_number as u32));
-                            }
-                            Err(e) => {
-                                error!("Failed to connect to Controller on Port {}: {}", port, e);
-                                return Err(ModuleError::ControllerError(e));
-                            }
-                        }
-                    }
-                }
-                Ok(None)
-            }
-            Err(e) => {
-                error!("Failed to list serial ports: {}", e);
-                Err(ModuleError::SerialError(e))
-            }
-        }
-    }
 
     /// Adds a new player to the game.
     fn add_player(&mut self, id: u32) -> usize {
@@ -311,6 +267,7 @@ impl Game {
 
         // Move State to Ingame
         info!("Starting Game.");
+        print!("Game Has Started, Have Fun!");
         self.state = GameState::Ingame;
     }
 
