@@ -249,26 +249,26 @@ impl Game {
 
     /// Initializes controllers and switches the game state to Ingame.
     fn move_to_game(&mut self) {
-        // Initialize Controllers
+        // Start Controllers
         let ids = self.controller_manager.get_controller_ids();
         for id in ids {
-            match self.controller_manager.init_controller(id) {
+            match self.controller_manager.start_controller(id) {
                 Ok(_) => {
-                    info!("Initialized Controller {}", id);
+                    info!("Started Controller {}", id);
                 }
                 Err(e) => {
-                    error!("Error Initializing Controller {}: {}", id, e);
-                    println!("Error Initializing Controller {}: {}", id, e);
+                    error!("Error Starting Controller {}: {}", id, e);
+                    println!("Error Starting Controller {}: {}", id, e);
                 }
             }
         }
-
+        println!("started Controllers");
         // Start a Timer that is used to plot data and end the game
-        self.timer = Some(Instant::now());
+        //self.timer = Some(Instant::now());
 
         // Move State to Ingame
         info!("Starting Game.");
-        print!("Game Has Started, Have Fun!");
+        println!("Game Has Started, Have Fun!");
         self.state = GameState::Ingame;
     }
 
