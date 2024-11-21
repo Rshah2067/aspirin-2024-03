@@ -1,9 +1,9 @@
 #![allow(non_camel_case_types)]
+use log::{debug, error, info, trace, warn};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::ptr;
 use std::time::{Duration, Instant};
-use log::{debug, error, info, trace, warn};
 
 use crate::error::SerialError;
 

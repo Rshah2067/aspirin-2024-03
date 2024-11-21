@@ -1,17 +1,18 @@
 #![allow(dead_code)]
 mod lib_serial_ffi;
-// use game_manager::Game;
+use game_manager::Game;
 mod error;
 
 mod controller;
-// mod game_manager;
-// use game_manager::GameState;
+mod game_manager;
+use game_manager::GameState;
 fn main() {
-    // let mut game = Game::new();
-    // //Main Loop
-    // while *game.get_gamestate() != GameState::Endgame{
-    //     game.run_game();
-    // }
+    let mut game = Game::new();
+    //Main Loop
+    println!("Welcome to the Game!");
+    while *game.get_gamestate() != GameState::Endgame {
+        game.run_game();
+    }
     println!("Thank You For Playing!")
     // match list_ports() {
     //     Ok(list) => println!("{:?}", list),

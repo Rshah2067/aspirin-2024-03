@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 
-use crate::error::{ControllerError, SerialError};
+use crate::error::{ControllerError, ModuleError, SerialError};
 use crate::lib_serial_ffi::*;
 use std::ffi::CString;
-use std::{default, str};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+use std::{default, str};
 
 use log;
+use regex::Regex;
 
 pub struct ControllerManager {
     controllers: Vec<Controller>,
@@ -29,7 +30,6 @@ pub struct ControllerState {
     pub east: Option<bool>,
     pub west: Option<bool>,
 }
-
 
 impl ControllerState {
     /// Creates a new ControllerState from a bitmask.
@@ -111,17 +111,17 @@ impl ControllerManager {
             kind: ControllerManager::determine_controller_kind(serial_port),
             state: ControllerState::default(),
         };
-    
+
         log::trace!("Controller: {:?}", controller);
-    
+
         let thread_controller = controller.clone();
         let thread_sender = self.output_sender.clone();
         let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
-    
+
         // Push the controller and sender before initializing
         self.controllers.push(controller.clone());
         self.controller_senders.push(Some(tx.clone()));
-    
+
         // Initialize controller before spawning thread
         let controller_id = controller.id;
         self.stop_controller(controller_id)?;
@@ -157,7 +157,10 @@ impl ControllerManager {
                             let received_data =
                                 String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
                             log::debug!("Read {} bytes from serial port", bytes_read);
-                            thread_sender.lock().unwrap().send((controller_id, received_data))?;
+                            thread_sender
+                                .lock()
+                                .unwrap()
+                                .send((controller_id, received_data))?;
                         }
                     }
                     Err(e) => {
@@ -188,15 +191,18 @@ impl ControllerManager {
                 sender.send(message)?;
                 log::debug!("Message sent to controller {} successfully", id);
                 Ok(())
-            },
+            }
             Some(None) => {
-                log::warn!("Controller sender for {} is None, possibly disconnected", id);
+                log::warn!(
+                    "Controller sender for {} is None, possibly disconnected",
+                    id
+                );
                 Err(ControllerError::MessageSendError)
-            },
+            }
             None => {
                 log::warn!("Controller {} not found", id);
                 Err(ControllerError::ControllerNotFound)
-            },
+            }
         }
     }
 
@@ -233,20 +239,33 @@ impl ControllerManager {
         if let Ok(Some((id, data))) = self.read_serial() {
             if let Some(controller) = self.controllers.iter_mut().find(|c| c.id == id) {
                 // Split data into lines and take the last non-empty one
-                if let Some(last_line) = data.lines().rev().filter(|line| !line.trim().is_empty()).next() {
+                if let Some(last_line) = data
+                    .lines()
+                    .rev()
+                    .filter(|line| !line.trim().is_empty())
+                    .next()
+                {
                     if let Ok(bitmask) = u8::from_str_radix(last_line.trim(), 16) {
-                    controller.state = ControllerState::from_bitmask(bitmask);
-                    log::debug!("Updated state for controller {}: {:?}", id, controller.state);
+                        controller.state = ControllerState::from_bitmask(bitmask);
+                        log::debug!(
+                            "Updated state for controller {}: {:?}",
+                            id,
+                            controller.state
+                        );
+                    } else {
+                        log::warn!(
+                            "Received invalid data format for controller {}: {}",
+                            id,
+                            last_line
+                        );
+                    }
                 } else {
-                        log::warn!("Received invalid data format for controller {}: {}", id, last_line);
+                    log::warn!("Received empty data for controller {}: {}", id, data);
                 }
             } else {
-                    log::warn!("Received empty data for controller {}: {}", id, data);
-            }
-            } else {
                 log::warn!("Received data for unknown controller ID: {}", id);
+            }
         }
-    }
     }
 
     pub fn get_controller_state(&self, id: u32) -> Option<ControllerState> {
@@ -309,6 +328,35 @@ impl ControllerManager {
     pub fn get_controller_ids(&self) -> Vec<u32> {
         self.controllers.iter().map(|s| s.id).collect()
     }
+
+    pub fn connect_new_controller(&mut self) -> Result<Option<u32>, ModuleError> {
+        // Check for new controllers
+        match list_ports() {
+            Ok(ports) => {
+                let ids = self.get_controller_ids();
+                let regex = Regex::new(r"^/dev/ttyACM(\d+)$").unwrap();
+                let valid_ports: Vec<u32> = ports
+                    .iter()
+                    .filter_map(|s| {
+                        regex.captures(s).and_then(|caps| {
+                            caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok())
+                        })
+                    })
+                    .collect();
+                for port in valid_ports {
+                    if !ids.contains(&port) {
+                        let serial_string = format!("/dev/ttyACM{}", port);
+                        match self.connect_controller(&serial_string) {
+                            Ok(()) => return Ok(Some(port)),
+                            Err(e) => return Err(ModuleError::ControllerError(e)),
+                        }
+                    }
+                }
+                Ok(None)
+            }
+            Err(e) => Err(ModuleError::SerialError(e)),
+        }
+    }
 }
 
 // TODO: Implement Drop for ControllerManager to ensure proper cleanup
@@ -326,9 +374,10 @@ mod tests {
 
     #[test]
     fn test_connect_real_controller() {
-        let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
-            .is_test(true)
-            .try_init();
+        let _ =
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
+                .is_test(true)
+                .try_init();
 
         // Create a new ControllerManager
         let mut manager = ControllerManager::new();
@@ -356,7 +405,9 @@ mod tests {
 
         thread::sleep(Duration::from_millis(10));
 
-        manager.send_message_to_controller(0, String::from("start controller\n")).unwrap();
+        manager
+            .send_message_to_controller(0, String::from("start controller\n"))
+            .unwrap();
 
         // Give some time for the commands to take effect
         thread::sleep(Duration::from_millis(1000));
@@ -368,11 +419,14 @@ mod tests {
             manager.update_controller_state();
             if let Some(state) = manager.get_controller_state(0) {
                 log::info!("Updated controller state: {:?}", state);
-                state_updated = true;           
+                state_updated = true;
             }
             thread::sleep(Duration::from_millis(100));
         }
-        assert!(state_updated, "Controller state not updated after 5 seconds");
+        assert!(
+            state_updated,
+            "Controller state not updated after 5 seconds"
+        );
 
         // Verify that we can get the controller state
         let final_state = manager.get_controller_state(0);
