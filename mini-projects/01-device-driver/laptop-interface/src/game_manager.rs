@@ -4,7 +4,7 @@ use crate::{controller::*, error::{ControllerError, ModuleError, SerialError}, l
 use log::{info, log};
 use regex::Regex;
 pub struct Game{
-    state:game_state,
+    state:GameState,
     controller_manager:ControllerManager,
     players:Vec<Player>,
     //Reciever from thread that is monitoring Stdin for user input
@@ -12,49 +12,49 @@ pub struct Game{
 }
 struct Player{
     position:(u32,u32),
-    score:u32,
+    score:f32,
     //A player has a player number and a controller number as the controller number corresponds to the
     //actual serial port that the player connected their controller to. The player number is the number
     //player they are (the first to connect is 1, the second is 2 etc) This is more similar to how most 
     //video games work where the player number is not corresponding to the hardware port of the controller
     player_number:usize,
-    controller_number:u32,
+    controller_id:u32,
 }
 impl Player{
     fn new(id:u32,player:usize)->Self{
-        Player { position: (0,0), score: (0), player_number:(player),controller_number: (id) }
+        Player { position: (0,0), score: (0.0), player_number:(player),controller_id: (id) }
     }
 }
 #[derive(PartialEq)]
-pub enum game_state{
+pub enum GameState{
     //Pregame is the phase where the user is connecting/initializing controllers
-    pregame,
+    Pregame,
     //in game is when we are actually playing the game and we are monitoring the output
     //of the controllers and updated game UI
-    ingame,
+    Ingame,
     //the current game round has ended and results are displayed, the user is then presented with the opperunity
-    postgame,
+    Postgame,
     //user decides to end game
-    endgame,
+    Endgame,
 }
 impl Game{
     //Constructor which is run at start
     pub fn new()->Self{ 
         Game { 
-            state: game_state::pregame,
+            state: GameState::Pregame,
             controller_manager: ControllerManager::new(),
             players:Vec::new(),
             stdin_reciever:spawn_stdin_channel()
         }
     }
     //returns the current state of the game (used to end game)
-    pub fn get_gamestate(& self)->&game_state{
+    pub fn get_gamestate(& self)->&GameState{
         &self.state
     }
     //Based on currrent game state does different thing
     pub fn run_game(&mut self){
         match self.state{
-            game_state::pregame =>{
+            GameState::Pregame =>{
                 //connect to a new controller, if a new controller is added ask if this if the player wants to start
                 match self.connect_new_controller(){
                     Ok(Some(player)) => {
@@ -80,13 +80,18 @@ impl Game{
                     _ =>println!("Invalid Input Please Enter \"ready\" to start game")
                 }
             }
-            game_state::ingame =>{
+            GameState::Ingame =>{
                 //actual game logic
                 //Check for New controller
                 //Poll each players controller
-               
+               for player in self.players.iter_mut(){
+                    //get the new state of their controller
+                    self.controller_manager.get_controller_state(player.controller_number);
+                    //calculate their new position and score
+                    player.score = player.position.0*player.position.0
+                }
                 //update player information and print current game state
-                
+
                 //check to see if users have indicated for game to end
                 let mut input = String::new();
                 //Check if the User has indicated to start the game
@@ -104,7 +109,7 @@ impl Game{
                     _ =>println!("Invalid Input Please Enter \"end\" to end game")
                 }
             }
-            game_state::postgame =>{
+            GameState::Postgame =>{
                 //game has ended, monitor how to user wants to proceed
                 let mut input = String::new();
                 //Check if the User has indicated to start the game
@@ -122,7 +127,7 @@ impl Game{
                     _ =>println!("Invalid Input Please Enter \"end\" to end game")
                 }
             }
-            game_state::endgame =>{
+            GameState::Endgame =>{
                 //User wants to stop playing, shut down and signal to main loop to end
             }
         }
@@ -175,9 +180,11 @@ impl Game{
         //go through all players and reset their scores and state
         for player in self.players.iter_mut(){
             player.position = (0,0);
-            player.score = 0;
+            player.score = 0.0;
+            println!("Player {} is connected", player.player_number);
         };
-        self.state = game_state::pregame;
+        println!("In order to start game enter \"ready\"");
+        self.state = GameState::Pregame;
         log::info!("Moved To Pregame");
 
     }
@@ -193,7 +200,7 @@ impl Game{
         }
         //Move State to in game
         log::info!("Starting Game");
-        self.state = game_state::ingame;
+        self.state = GameState::Ingame;
     }
     //Move Controllers back to intialization state an
     fn move_to_postgame(&mut self){
@@ -210,11 +217,11 @@ impl Game{
         println!("Game Over!");
         println!("Player {} won with {} points",winner,score);
         println!("To start a new game enter \"new game\" to stop playing enter \"end\"");
-        self.state = game_state::postgame;
+        self.state = GameState::Postgame;
     }
     //drops controller manager and all of the players and indicates for the main function to drop and exit
     fn move_to_endgame(&mut self){
-        self.state = game_state::endgame;
+        self.state = GameState::Endgame;
     }
 }
 

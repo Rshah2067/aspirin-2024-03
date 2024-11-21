@@ -2,16 +2,15 @@
 mod lib_serial_ffi;
 use game_manager::Game;
 use lib_serial_ffi::*;
-use std::ffi::CString;
 mod error;
 
 mod controller;
 mod game_manager;
-use game_manager::game_state;
+use game_manager::GameState;
 fn main() {
     let mut game = Game::new();
     //Main Loop
-    while *game.get_gamestate() != game_state::endgame{
+    while *game.get_gamestate() != GameState::Endgame{
         game.run_game();
     }
     println!("Thank You For Playing!")
