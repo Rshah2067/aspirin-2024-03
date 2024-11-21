@@ -11,7 +11,7 @@ pub struct Game{
     stdin_reciever:Receiver<String>,
 }
 struct Player{
-    position:(u32,u32),
+    position:(i32,i32),
     score:f32,
     //A player has a player number and a controller number as the controller number corresponds to the
     //actual serial port that the player connected their controller to. The player number is the number
@@ -242,4 +242,31 @@ fn spawn_stdin_channel()->Receiver<String>{
         }   
     });
     rx
+}
+//converts a controller state into a change in character position
+fn controller_state_to_movement(state:ControllerState) ->(i32,i32){
+    let (mut x,mut y):(i32,i32) = (0,0);
+    if state.north_east{
+        x +=1;
+        y +=1;
+    };
+    if state.north_west{
+        x +=-1;
+        y +=1;
+    };
+    if state.south_east{
+        x +=1;
+        y +=-1;
+    };
+    if state.north_west{
+        x +=-1;
+        y +=-1;
+    };
+    if let Some(true)=state.north{
+        y+=1;
+    };
+    if let Some(true)=state.south{
+        y+=-1;
+    };
+    (x,y)
 }

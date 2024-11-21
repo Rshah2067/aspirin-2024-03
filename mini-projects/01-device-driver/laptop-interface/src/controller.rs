@@ -21,12 +21,12 @@ pub struct ControllerManager {
 }
 
 pub struct ControllerState {
-    north_east: bool,
-    north_west: bool,
-    south_east: bool,
-    south_west: bool,
-    north: Option<bool>,
-    south: Option<bool>,
+    pub north_east: bool,
+    pub north_west: bool,
+    pub south_east: bool,
+    pub south_west: bool,
+    pub north: Option<bool>,
+    pub south: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
