@@ -1,5 +1,5 @@
-use std::{io::{self, Read}, sync::mpsc::{self, Receiver}, thread};
-
+use std::{io::{self, Read}, sync::mpsc::{self, Receiver}, thread, time::Instant};
+use plotters::prelude::*;
 use crate::{controller::*, error::{ControllerError, ModuleError, SerialError}, list_ports};
 use log::{info, log};
 use regex::Regex;
@@ -9,20 +9,22 @@ pub struct Game{
     players:Vec<Player>,
     //Reciever from thread that is monitoring Stdin for user input
     stdin_reciever:Receiver<String>,
+    timer:Option<Instant>
 }
 struct Player{
     position:(i32,i32),
-    score:f32,
+    score:f64,
     //A player has a player number and a controller number as the controller number corresponds to the
     //actual serial port that the player connected their controller to. The player number is the number
     //player they are (the first to connect is 1, the second is 2 etc) This is more similar to how most 
     //video games work where the player number is not corresponding to the hardware port of the controller
     player_number:usize,
     controller_id:u32,
+    history:Vec<(f64,f64)>
 }
 impl Player{
     fn new(id:u32,player:usize)->Self{
-        Player { position: (0,0), score: (0.0), player_number:(player),controller_id: (id) }
+        Player { position: (0,0), score: (0.0), player_number:(player),controller_id: (id),history: Vec::new() }
     }
 }
 #[derive(PartialEq)]
@@ -44,7 +46,8 @@ impl Game{
             state: GameState::Pregame,
             controller_manager: ControllerManager::new(),
             players:Vec::new(),
-            stdin_reciever:spawn_stdin_channel()
+            stdin_reciever:spawn_stdin_channel(),
+            timer:None
         }
     }
     //returns the current state of the game (used to end game)
@@ -88,7 +91,12 @@ impl Game{
                     //get the new state of their controller
                     self.controller_manager.get_controller_state(player.controller_number);
                     //calculate their new position and score
-                    player.score = player.position.0*player.position.0
+                    player.score = player.position.0*player.position.0;
+                    //add there score to their history if at least 5 seconds have passed (so we don't use too much memory)
+                    //can safely unwrap as our state machine ensures that we will have a timer here
+                    if self.timer.unwrap().elapsed().as_secs() >=5{
+                        player.history.push((player.score,self.timer.unwrap().elapsed().as_secs_f32().into()));
+                    }
                 }
                 //update player information and print current game state
 
@@ -181,6 +189,7 @@ impl Game{
         for player in self.players.iter_mut(){
             player.position = (0,0);
             player.score = 0.0;
+            player.history = Vec::new();
             println!("Player {} is connected", player.player_number);
         };
         println!("In order to start game enter \"ready\"");
@@ -198,11 +207,12 @@ impl Game{
                 Err(e) =>eprint!("Error Initializing Controller, Check that they were all Plugged in")
             }
         }
+        //Start a Timer that is used to plot data and end the game
+        self.timer = Some(Instant::now());
         //Move State to in game
         log::info!("Starting Game");
         self.state = GameState::Ingame;
     }
-    //Move Controllers back to intialization state an
     fn move_to_postgame(&mut self){
         //move controllers
         //Determine Winner
@@ -216,6 +226,27 @@ impl Game{
         //Print Results
         println!("Game Over!");
         println!("Player {} won with {} points",winner,score);
+        //Plot Results for each player
+        for player in self.players.iter_mut(){
+            let mut plot_name = String::from("Game Result For Player");
+            plot_name.push_str(&player.player_number.to_string());
+            let root_area = BitMapBackend::new("images/2.6.png", (600, 400))
+            .into_drawing_area();
+            root_area.fill(&BLACK).unwrap();
+            let mut ctx = ChartBuilder::on(&root_area)
+                .set_label_area_size(LabelAreaPosition::Left, 40)
+                .set_label_area_size(LabelAreaPosition::Bottom, 40)
+                .caption(plot_name, ("sans-serif", 40))
+                .build_cartesian_2d(-10.0..50.0, -10.0..50.0)
+                .unwrap();
+        
+            ctx.configure_mesh().draw().unwrap();
+            ctx.draw_series(
+                player.history.iter().map(|point| TriangleMarker::new(*point, 5, &BLUE)),
+            )
+            .unwrap();
+        }
+
         println!("To start a new game enter \"new game\" to stop playing enter \"end\"");
         self.state = GameState::Postgame;
     }
