@@ -80,7 +80,6 @@ impl Game {
     pub fn run_game(&mut self) {
         match self.state {
             GameState::Pregame => {
-                
                 // Connect to a new controller using Game's helper method
 
                 match self.controller_manager.connect_new_controller() {
@@ -118,22 +117,25 @@ impl Game {
             }
 
             GameState::Ingame => {
+                thread::sleep(std::time::Duration::from_millis(17));
                 // Actual game logic
 
                 // Check for new controller
-                match self.controller_manager.connect_new_controller() {
-                    Ok(Some(id)) => {
-                        let player_number = self.add_player(id);
-                        println!("Connected Player {}", player_number);
-                    }
-                    Ok(None) => (),
-                    Err(e) => {
-                        error!("Error Connecting Controller: {}", e);
-                        println!("Error Connecting Controller: {}", e);
-                    }
-                }
-
+                // match self.controller_manager.connect_new_controller() {
+                //     Ok(Some(id)) => {
+                //         let player_number = self.add_player(id);
+                //         println!("Connected Player {}", player_number);
+                //     }
+                //     Ok(None) => (),
+                //     Err(e) => {
+                //         error!("Error Connecting Controller: {}", e);
+                //         println!("Error Connecting Controller: {}", e);
+                //     }
+                // }
+                //println!("Ingame");
+                self.controller_manager.update_controller_state();
                 // Poll each player's controller
+                //println!("Polling Players");
                 for player in self.players.iter_mut() {
                     // Get the new state of their controller
                     match self
@@ -223,7 +225,6 @@ impl Game {
         }
     }
 
-
     /// Adds a new player to the game.
     fn add_player(&mut self, id: u32) -> usize {
         let player_number = self.players.len() + 1;
@@ -251,14 +252,17 @@ impl Game {
     fn move_to_game(&mut self) {
         // Start Controllers
         let ids = self.controller_manager.get_controller_ids();
+
         for id in ids {
+            let _ = self
+                .controller_manager
+                .set_controller_led(id, LedState::AllOn);
             match self.controller_manager.start_controller(id) {
                 Ok(_) => {
                     info!("Started Controller {}", id);
                 }
                 Err(e) => {
                     error!("Error Starting Controller {}: {}", id, e);
-                    println!("Error Starting Controller {}: {}", id, e);
                 }
             }
         }
@@ -328,16 +332,15 @@ impl Game {
 
     /// Drops controller manager and all of the players, indicating for the main function to drop and exit.
     fn move_to_endgame(&mut self) {
-        info!("Ending game. Thank you for playing!");
         println!("Ending game. Thank you for playing!");
         self.state = GameState::Endgame;
     }
 
     /// Prints the current game state, including player positions and scores.
     fn print_game_state(&self) {
-        info!("Current Game State:");
+        println!("Current Game State:");
         for player in &self.players {
-            info!(
+            println!(
                 "Player {} - Position: ({}, {}), Score: {:.2}",
                 player.player_number, player.position.0, player.position.1, player.score
             );
@@ -369,6 +372,7 @@ fn spawn_stdin_channel() -> Receiver<String> {
 
 /// Converts a controller state into a change in character position.
 fn controller_state_to_movement(state: ControllerState) -> (i32, i32) {
+    //println!("State: {:?}", state);
     let mut x: i32 = 0;
     let mut y: i32 = 0;
 
@@ -400,6 +404,6 @@ fn controller_state_to_movement(state: ControllerState) -> (i32, i32) {
     if let Some(true) = state.west {
         x -= 1;
     }
-
+    //println!("Movement: ({}, {})", x, y);
     (x, y)
 }

@@ -190,11 +190,7 @@ impl ControllerManager {
         Ok(())
     }
 
-    fn send_message_to_controller(
-        &self,
-        id: u32,
-        message: String,
-    ) -> Result<(), ControllerError> {
+    fn send_message_to_controller(&self, id: u32, message: String) -> Result<(), ControllerError> {
         match self.controller_senders.get(&id) {
             Some(sender) => {
                 sender.send(message)?;
@@ -222,9 +218,10 @@ impl ControllerManager {
     }
 
     fn read_serial(&self) -> Result<Option<(u32, String)>, ControllerError> {
+        println!("Reading serial data");
         match self.input_receiver.try_recv() {
             Ok(data) => {
-                log::debug!("Read serial data (Controller {}): {}", data.0, data.1);
+                println!("Read serial data (Controller {}): {}", data.0, data.1);
                 Ok(Some(data))
             }
             Err(TryRecvError::Empty) => Ok(None),
@@ -328,11 +325,7 @@ impl ControllerManager {
         self.send_message_to_controller(id, String::from("stop controller\n"))
     }
 
-    pub fn set_controller_led(
-        &self,
-        id: u32,
-        led_state: LedState,
-    ) -> Result<(), ControllerError> {
+    pub fn set_controller_led(&self, id: u32, led_state: LedState) -> Result<(), ControllerError> {
         log::info!("Setting controller {} LED to: {:?}", id, led_state);
         let command = match led_state {
             LedState::Ready => "set ready led",
@@ -448,13 +441,16 @@ mod tests {
 
         // Wait for some data from the controller and update its state
         let mut state_updated = false;
-        manager.update_controller_state();
-        if let Some(state) = manager.get_controller_state(controller_id) {
-            log::info!("Updated controller state: {:?}", state);
-            state_updated = true;
+        for _ in 0..50 {
+            // Try for 5 seconds (50 * 100ms)
+            manager.update_controller_state();
+            if let Some(state) = manager.get_controller_state(controller_id) {
+                log::info!("Updated controller state: {:?}", state);
+                state_updated = true;
+            }
+            thread::sleep(Duration::from_millis(100));
         }
-        thread::sleep(Duration::from_millis(100));
-        
+
         assert!(
             state_updated,
             "Controller state not updated after 5 seconds"
