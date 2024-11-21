@@ -80,9 +80,9 @@ impl Game {
     pub fn run_game(&mut self) {
         match self.state {
             GameState::Pregame => {
-                debug!("In Pregame State.");
-                // Connect to a new controller using Game's helper method
                 
+                // Connect to a new controller using Game's helper method
+
                 match self.controller_manager.connect_new_controller() {
                     Ok(Some(id)) => {
                         let player_number = self.add_player(id);
@@ -94,7 +94,6 @@ impl Game {
                     Ok(None) => (),
                     Err(e) => {
                         error!("Error Connecting Controller: {}. Try Again.", e);
-                        println!("Error Connecting Controller: {}. Try Again.", e);
                     }
                 }
 

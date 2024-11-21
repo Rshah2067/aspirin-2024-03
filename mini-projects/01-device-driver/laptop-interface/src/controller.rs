@@ -10,15 +10,17 @@ use std::thread;
 use std::time::Duration;
 use std::{default, str};
 
-use log;
+use log::{self, info, trace};
 use regex::Regex;
+use std::collections::HashMap;
 
 pub struct ControllerManager {
     controllers: Vec<Controller>,
     input_receiver: Receiver<(u32, String)>,
     output_sender: Arc<Mutex<Sender<(u32, String)>>>,
-    controller_senders: Vec<Option<Sender<String>>>,
+    controller_senders: HashMap<u32, Sender<String>>, // Changed to HashMap
 }
+
 #[derive(Clone, Debug)]
 pub struct ControllerState {
     pub north_east: bool,
@@ -97,15 +99,18 @@ impl ControllerManager {
             controllers: Vec::new(),
             input_receiver: output_receiver,
             output_sender: Arc::new(Mutex::new(output_sender)),
-            controller_senders: Vec::new(),
+            controller_senders: HashMap::new(), // Initialize as HashMap
         }
     }
 
     pub fn connect_controller(&mut self, serial_port: &str) -> Result<(), ControllerError> {
-        log::info!("Connecting to controller on serial port: {}", serial_port);
-
         let id = self.extract_id_from_serial_port(serial_port)?;
 
+        log::info!(
+            "Connecting to controller on serial port: {}, assigning id {}",
+            serial_port,
+            id
+        );
         let controller = Controller {
             name: format!("Controller_{}", serial_port.replace("/", "_")),
             id,
@@ -122,7 +127,7 @@ impl ControllerManager {
 
         // Push the controller and sender before initializing
         self.controllers.push(controller.clone());
-        self.controller_senders.push(Some(tx.clone()));
+        self.controller_senders.insert(controller.id, tx.clone()); // Insert into HashMap
 
         // Initialize controller before spawning thread
         let controller_id = controller.id;
@@ -165,19 +170,17 @@ impl ControllerManager {
                                 .send((controller_id, received_data))?;
                         }
                     }
-                    Err(e) => {
-                        match e {
-                            SerialError::Timeout => {
-                                // Timeout is normal, just continue the loop
-                                log::trace!("Read timeout, continuing");
-                                thread::sleep(Duration::from_millis(100));
-                            }
-                            _ => {
-                                log::error!("Error reading from serial port: {:?}", e);
-                                return Err(e.into());
-                            }
+                    Err(e) => match e {
+                        SerialError::Timeout => {
+                            // Timeout is normal, just continue the loop
+                            log::trace!("Read timeout, continuing");
+                            thread::sleep(Duration::from_millis(100));
                         }
-                    }
+                        _ => {
+                            log::error!("Error reading from serial port: {:?}", e);
+                            return Err(e.into());
+                        }
+                    },
                 }
             }
             Ok(())
@@ -187,22 +190,19 @@ impl ControllerManager {
         Ok(())
     }
 
-    fn send_message_to_controller(&self, id: u32, message: String) -> Result<(), ControllerError> {
-        match self.controller_senders.get(id as usize) {
-            Some(Some(sender)) => {
+    fn send_message_to_controller(
+        &self,
+        id: u32,
+        message: String,
+    ) -> Result<(), ControllerError> {
+        match self.controller_senders.get(&id) {
+            Some(sender) => {
                 sender.send(message)?;
                 log::debug!("Message sent to controller {} successfully", id);
                 Ok(())
             }
-            Some(None) => {
-                log::warn!(
-                    "Controller sender for {} is None, possibly disconnected",
-                    id
-                );
-                Err(ControllerError::MessageSendError)
-            }
             None => {
-                log::warn!("Controller {} not found", id);
+                log::warn!("Controller sender for {} not found", id);
                 Err(ControllerError::ControllerNotFound)
             }
         }
@@ -213,17 +213,12 @@ impl ControllerManager {
             log::error!("Failed to send reset message to controller {}: {}", id, e);
         }
         log::info!("Disconnecting controller with id: {}", id);
-        if let Some(sender) = self.controller_senders.get_mut(id as usize) {
-            *sender = None; // This will close the channel
-        }
-        let initial_count = self.controllers.len();
-        self.controllers.retain(|controller| controller.id != id);
-        let final_count = self.controllers.len();
-        if initial_count == final_count {
-            log::warn!("No controller found with id: {}", id);
-        } else {
+        if self.controller_senders.remove(&id).is_some() {
             log::info!("Controller with id: {} disconnected successfully", id);
+        } else {
+            log::warn!("No controller found with id: {}", id);
         }
+        self.controllers.retain(|controller| controller.id != id);
     }
 
     fn read_serial(&self) -> Result<Option<(u32, String)>, ControllerError> {
@@ -333,7 +328,11 @@ impl ControllerManager {
         self.send_message_to_controller(id, String::from("stop controller\n"))
     }
 
-    pub fn set_controller_led(&self, id: u32, led_state: LedState) -> Result<(), ControllerError> {
+    pub fn set_controller_led(
+        &self,
+        id: u32,
+        led_state: LedState,
+    ) -> Result<(), ControllerError> {
         log::info!("Setting controller {} LED to: {:?}", id, led_state);
         let command = match led_state {
             LedState::Ready => "set ready led",
@@ -355,8 +354,9 @@ impl ControllerManager {
         // Check for new controllers
         match list_ports() {
             Ok(ports) => {
+                //info!("Found ports: {:?}", ports);
                 let ids = self.get_controller_ids();
-                let regex = Regex::new(r"^(?:/dev/ttyACM|cu\.usbmodem)(\d+)$").unwrap();
+                let regex = Regex::new(r"^/dev/(?:ttyACM|cu\.usbmodem)(\d+)$").unwrap();
                 let valid_ports: Vec<(String, u32)> = ports
                     .iter()
                     .filter_map(|s| {
@@ -370,7 +370,9 @@ impl ControllerManager {
                         })
                     })
                     .collect();
+                //println!("{:?}", valid_ports);
                 for (serial_string, port) in valid_ports {
+                    trace!("Found valid port: {}", serial_string);
                     if !ids.contains(&port) {
                         match self.connect_controller(&serial_string) {
                             Ok(()) => return Ok(Some(port)),
@@ -422,17 +424,23 @@ mod tests {
         assert_eq!(manager.controllers.len(), 1);
 
         // Check the properties of the connected controller
+        let controller_id = manager.controllers[0].id; // Clone the controller ID
         let controller = &manager.controllers[0];
         assert_eq!(controller.serial_port, real_port);
-        assert_eq!(controller.id, 0);
+        assert_eq!(controller.id, 101); // Adjusted to match the extracted ID
+
+        // Clone the controller ID to avoid borrowing issues
+        let controller_id = controller.id;
 
         // Switch the controller into run mode
-        manager.set_controller_led(0, LedState::AllOn).unwrap();
+        manager
+            .set_controller_led(controller_id, LedState::AllOn)
+            .unwrap();
 
         thread::sleep(Duration::from_millis(10));
 
         manager
-            .send_message_to_controller(0, String::from("start controller\n"))
+            .send_message_to_controller(controller_id, String::from("start controller\n"))
             .unwrap();
 
         // Give some time for the commands to take effect
@@ -440,26 +448,24 @@ mod tests {
 
         // Wait for some data from the controller and update its state
         let mut state_updated = false;
-        for _ in 0..50 {
-            // Try for 5 seconds (50 * 100ms)
-            manager.update_controller_state();
-            if let Some(state) = manager.get_controller_state(0) {
-                log::info!("Updated controller state: {:?}", state);
-                state_updated = true;
-            }
-            thread::sleep(Duration::from_millis(100));
+        manager.update_controller_state();
+        if let Some(state) = manager.get_controller_state(controller_id) {
+            log::info!("Updated controller state: {:?}", state);
+            state_updated = true;
         }
+        thread::sleep(Duration::from_millis(100));
+        
         assert!(
             state_updated,
             "Controller state not updated after 5 seconds"
         );
 
         // Verify that we can get the controller state
-        let final_state = manager.get_controller_state(0);
+        let final_state = manager.get_controller_state(controller_id);
         assert!(final_state.is_some(), "Failed to get controller state");
         log::info!("Final controller state: {:?}", final_state.unwrap());
 
         // Clean up
-        manager.disconnect_controller(0);
+        manager.disconnect_controller(controller_id);
     }
 }
