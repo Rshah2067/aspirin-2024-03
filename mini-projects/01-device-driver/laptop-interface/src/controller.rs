@@ -104,9 +104,11 @@ impl ControllerManager {
     pub fn connect_controller(&mut self, serial_port: &str) -> Result<(), ControllerError> {
         log::info!("Connecting to controller on serial port: {}", serial_port);
 
+        let id = self.extract_id_from_serial_port(serial_port)?;
+
         let controller = Controller {
             name: format!("Controller_{}", serial_port.replace("/", "_")),
-            id: self.controllers.len() as u32,
+            id,
             serial_port: serial_port.to_string(),
             kind: ControllerManager::determine_controller_kind(serial_port),
             state: ControllerState::default(),
@@ -235,6 +237,21 @@ impl ControllerManager {
         }
     }
 
+    fn extract_id_from_serial_port(&self, serial_port: &str) -> Result<u32, ControllerError> {
+        let re = Regex::new(r"(\d+)$").unwrap();
+        if let Some(captures) = re.captures(serial_port) {
+            if let Some(matched) = captures.get(1) {
+                if let Ok(id) = matched.as_str().parse::<u32>() {
+                    return Ok(id);
+                }
+            }
+        }
+        Err(ControllerError::CommandError(format!(
+            "Failed to extract ID from serial port: {}",
+            serial_port
+        )))
+    }
+
     pub fn update_controller_state(&mut self) {
         if let Ok(Some((id, data))) = self.read_serial() {
             if let Some(controller) = self.controllers.iter_mut().find(|c| c.id == id) {
@@ -339,18 +356,22 @@ impl ControllerManager {
         match list_ports() {
             Ok(ports) => {
                 let ids = self.get_controller_ids();
-                let regex = Regex::new(r"^/dev/ttyACM(\d+)$").unwrap();
-                let valid_ports: Vec<u32> = ports
+                let regex = Regex::new(r"^(?:/dev/ttyACM|cu\.usbmodem)(\d+)$").unwrap();
+                let valid_ports: Vec<(String, u32)> = ports
                     .iter()
                     .filter_map(|s| {
                         regex.captures(s).and_then(|caps| {
-                            caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok())
+                            caps.get(1).and_then(|m| {
+                                m.as_str()
+                                    .parse::<u32>()
+                                    .ok()
+                                    .map(|num| (s.to_string(), num))
+                            })
                         })
                     })
                     .collect();
-                for port in valid_ports {
+                for (serial_string, port) in valid_ports {
                     if !ids.contains(&port) {
-                        let serial_string = format!("/dev/ttyACM{}", port);
                         match self.connect_controller(&serial_string) {
                             Ok(()) => return Ok(Some(port)),
                             Err(e) => return Err(ModuleError::ControllerError(e)),

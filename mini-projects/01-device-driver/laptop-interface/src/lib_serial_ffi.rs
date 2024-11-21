@@ -232,13 +232,13 @@ pub fn list_ports() -> Result<Vec<String>, SerialError> {
                     let port = *port_list.add(i);
                     let name_ptr = sp_get_port_name(port);
                     let name = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
-                    debug!("Found port: {}", name);
+                    trace!("Found port: {}", name);
                     ports.push(name);
                     i += 1;
                 }
                 sp_free_port_list(port_list);
             }
-            info!("Successfully listed {} ports", ports.len());
+            trace!("Successfully listed {} ports", ports.len());
             Ok(ports)
         }
         -1 => {

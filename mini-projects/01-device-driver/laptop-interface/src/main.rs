@@ -9,7 +9,7 @@ use game_manager::GameState;
 use env_logger;
 use log::LevelFilter;
 fn main() {
-    env_logger::builder().filter_level(log::LevelFilter::Trace);
+    env_logger::builder().filter_level(log::LevelFilter::Debug).init();
     let mut game = Game::new();
     //Main Loop
     println!("Welcome to the Game!");
