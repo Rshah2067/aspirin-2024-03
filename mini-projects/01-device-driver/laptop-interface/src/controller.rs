@@ -14,9 +14,19 @@ use log;
 
 pub struct ControllerManager {
     controllers: Vec<Controller>,
-    input_receiver: Receiver<String>,
-    output_sender: Arc<Mutex<Sender<String>>>,
+    controller_states: Vec<ControllerState>,
+    input_receiver: Receiver<(u32, String)>,
+    output_sender: Arc<Mutex<Sender<(u32, String)>>>,
     controller_senders: Vec<Option<Sender<String>>>,
+}
+
+pub struct ControllerState {
+    north_east: bool,
+    north_west: bool,
+    south_east: bool,
+    south_west: bool,
+    north: Option<bool>,
+    south: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +57,7 @@ impl ControllerManager {
         let (output_sender, output_receiver) = std::sync::mpsc::channel();
         ControllerManager {
             controllers: Vec::new(),
+            controller_states: Vec::new(),
             input_receiver: output_receiver,
             output_sender: Arc::new(Mutex::new(output_sender)),
             controller_senders: Vec::new(),
@@ -110,7 +121,7 @@ impl ControllerManager {
                             let received_data =
                                 String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
                             log::debug!("Read {} bytes from serial port", bytes_read);
-                            thread_sender.lock().unwrap().send(received_data)?;
+                            thread_sender.lock().unwrap().send((controller_id, received_data))?;
                         }
                     }
                     Err(e) => {
@@ -234,6 +245,8 @@ impl ControllerManager {
         output
     }   
 }
+
+//todo implement drop for controller manager
 
 #[cfg(test)]
 mod tests {
