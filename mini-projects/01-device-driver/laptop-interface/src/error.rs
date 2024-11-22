@@ -13,23 +13,23 @@ pub enum ModuleError {
 #[derive(Error, Debug)]
 pub enum SerialError {
     #[error("SP_ERR_ARG: Invalid argument")]
-    ARG,
+    InvalidArgument,
     #[error("SP_ERR_FAIL: Operation failed")]
-    FAIL,
+    OperationFailed,
     #[error("SP_ERR_MEM: Memory allocation failure")]
-    MEM,
+    AllocFail,
     #[error("SP_ERR_SUPP: Operation not supported")]
-    SUPP,
+    OperationNotSupported,
     #[error("Timeout")]
     Timeout,
     #[error("Unknown error")]
     Unknown,
     #[error("Failed to open port")]
-    CONFIG_BAUDRATE,
+    ConfigBaudrate,
     #[error("Failed to configure port")]
-    CONFIG_BITS,
+    ConfigBits,
     #[error("Failed to configure port")]
-    CONFIG_FLOWCONTROL,
+    ConfigFlowcontrol,
 }
 
 #[derive(Error, Debug)]
@@ -68,10 +68,10 @@ pub enum ControllerError {
 impl From<i32> for SerialError {
     fn from(error: i32) -> Self {
         match error {
-            -1 => SerialError::ARG,
-            -2 => SerialError::FAIL,
-            -3 => SerialError::MEM,
-            -4 => SerialError::SUPP,
+            -1 => SerialError::InvalidArgument,
+            -2 => SerialError::OperationFailed,
+            -3 => SerialError::AllocFail,
+            -4 => SerialError::OperationNotSupported,
             _ => SerialError::Unknown,
         }
     }

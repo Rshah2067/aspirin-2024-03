@@ -4,7 +4,6 @@ use crate::error::{ControllerError, ModuleError, SerialError};
 use crate::lib_serial_ffi::*;
 
 use std::ffi::CString;
-use std::hash::Hash;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
