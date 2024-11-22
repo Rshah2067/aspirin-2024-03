@@ -73,6 +73,8 @@ fn main() -> ! {
     let mut se_button = pins.gpio15.into_pull_down_input();
     let mut sw_button = pins.gpio14.into_pull_down_input();
     let mut nw_button = pins.gpio12.into_pull_down_input();
+    let mut n_button = pins.gpio11.into_pull_down_input();
+    let mut s_button = pins.gpio10.into_pull_down_input();
 
     // Set up the watchdog driver - needed by the clock setup code
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
@@ -265,7 +267,18 @@ fn main() -> ! {
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            << 3);
+                            << 3)
+                        +((n_button
+                            .is_high()
+                            .expect("GPIOs should never fail to read state")
+                            as u8)
+                            <<3)
+                        +((s_button
+                            .is_high()
+                            .expect("GPIOs should never fail to read state")
+                            as u8)
+                            <<3);
+                        
                     writeln!(button_text, "{button_data}")
                         .expect("GPIOs should never fail to read state");
 
