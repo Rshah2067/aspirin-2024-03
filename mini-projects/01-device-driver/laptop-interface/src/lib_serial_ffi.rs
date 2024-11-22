@@ -4,6 +4,7 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::ptr;
 use std::time::{Duration, Instant};
+use libc::{size_t};
 
 use crate::error::SerialError;
 
@@ -12,18 +13,19 @@ struct sp_port {
     _private: [u8; 0], // Opaque struct
 }
 
-// Wrapper for struct that allows us to pass it through functions
 pub struct SerialPort {
     sp_port: *mut sp_port,
 }
 
 impl SerialPort {
     pub fn new(name: CString) -> Result<Self, SerialError> {
+        debug!("Creating new SerialPort with name: {:?}", name);
         let mut port: *mut sp_port = ptr::null_mut();
         let result: c_int;
         unsafe {
             result = sp_get_port_by_name(name.as_ptr(), &mut port);
         }
+        trace!("sp_get_port_by_name returned: {}, port pointer: {:?}", result, port);
         if port.is_null() {
             error!("Failed to create port: null pointer");
             return Err(SerialError::MEM);
@@ -57,10 +59,12 @@ impl SerialPort {
     }
 
     pub fn open(&self, mode: sp_mode) -> Result<(), SerialError> {
+        debug!("Opening serial port with mode: {:?}", mode);
         let result: c_int;
         unsafe {
             result = sp_open(self.sp_port, mode);
         }
+        trace!("sp_open returned: {}", result);
         match result {
             0 => {
                 info!("Successfully opened SerialPort");
@@ -89,52 +93,61 @@ impl SerialPort {
         }
     }
 
-    pub fn read(&self, buff: &mut [u8], timeout_ms: u32) -> Result<usize, SerialError> {
-        let start_time = Instant::now();
-        let timeout = Duration::from_millis(timeout_ms as u64);
+    pub fn configure(&self, baudrate: c_int, bits: c_int, flowcontrol: sp_flowcontrol) -> Result<(), SerialError> {
+        debug!(
+            "Configuring SerialPort with baudrate: {}, bits: {}, flowcontrol: {:?}",
+            baudrate, bits, flowcontrol
+        );
+        unsafe {
+            if sp_set_baudrate(self.sp_port, baudrate) != 0 {
+                error!("Failed to set baudrate to {}", baudrate);
+                return Err(SerialError::CONFIG_BAUDRATE);
+            }
+            if sp_set_bits(self.sp_port, bits) != 0 {
+                error!("Failed to set bits to {}", bits);
+                return Err(SerialError::CONFIG_BITS);
+            }
+            if sp_set_flowcontrol(self.sp_port, flowcontrol) != 0 {
+                error!("Failed to set flow control to {:?}", flowcontrol);
+                return Err(SerialError::CONFIG_FLOWCONTROL);
+            }
+        }
+        info!("SerialPort configured successfully");
+        Ok(())
+    }
 
+    pub fn read(&self, buff: &mut [u8], timeout_ms: u32) -> Result<usize, SerialError> {
         debug!(
             "Attempting to read {} bytes with {}ms timeout",
             buff.len(),
             timeout_ms
         );
 
-        let mut total_bytes_read: usize = 0;
+        trace!(
+            "Calling sp_blocking_read with buffer size: {}, timeout_ms: {}",
+            buff.len(),
+            timeout_ms
+        );
+        let result = unsafe {
+            sp_blocking_read(
+                self.sp_port,
+                buff.as_mut_ptr() as *mut c_void,
+                buff.len(),
+                timeout_ms as c_uint,
+            )
+        };
+        trace!("sp_blocking_read returned: {}", result);
 
-        while total_bytes_read < buff.len() && start_time.elapsed() < timeout {
-            let remaining_timeout = timeout
-                .checked_sub(start_time.elapsed())
-                .unwrap_or_else(|| Duration::from_millis(0));
-
-            let result = unsafe {
-                sp_blocking_read(
-                    self.sp_port,
-                    buff[total_bytes_read..].as_mut_ptr() as *mut c_void,
-                    buff.len() - total_bytes_read,
-                    remaining_timeout.as_millis() as c_uint,
-                )
-            };
-
-            if result > 0 {
-                total_bytes_read += result as usize;
-                trace!("Read {} bytes", result);
-            } else if result == 0 {
-                trace!("No data available, continuing to wait");
-                std::thread::sleep(Duration::from_millis(10));
-            } else {
-                // Handle error based on negative result
-                let err_code = result as c_int;
-                error!("Failed to read: error code {}", err_code);
-                return Err(SerialError::from(err_code));
-            }
-        }
-
-        if total_bytes_read > 0 {
-            info!("Successfully read {} bytes", total_bytes_read);
-            Ok(total_bytes_read)
-        } else {
+        if result > 0 {
+            debug!("Successfully read {} bytes", result);
+            Ok(result as usize)
+        } else if result == 0 {
             warn!("No data read within the timeout period");
             Err(SerialError::Timeout)
+        } else {
+            let err_code = result as c_int;
+            error!("Failed to read: error code {}", err_code);
+            Err(SerialError::from(err_code))
         }
     }
 
@@ -143,6 +156,10 @@ impl SerialPort {
         let count = buf.len();
         debug!("Attempting to write {} bytes", count);
 
+        trace!(
+            "Calling sp_blocking_write with buffer size: {}, timeout_ms: 2000",
+            count
+        );
         let result = unsafe {
             sp_blocking_write(
                 self.sp_port,
@@ -151,6 +168,7 @@ impl SerialPort {
                 2000, // Timeout in milliseconds
             )
         };
+        trace!("sp_blocking_write returned: {}", result);
 
         if result >= 0 {
             info!("Successfully wrote {} bytes", result);
@@ -171,8 +189,12 @@ impl Drop for SerialPort {
             sp_close(self.sp_port);
             sp_free_port(self.sp_port);
         }
+        info!("SerialPort resources freed");
     }
 }
+
+// Enums and FFI function declarations remain the same
+// Enums and FFI function declarations
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -204,13 +226,13 @@ extern "C" {
     fn sp_blocking_write(
         port: *mut sp_port,
         buf: *const c_void,
-        count: usize,
+        count: size_t,
         timeout_ms: c_uint,
     ) -> isize;
     fn sp_blocking_read(
         port: *mut sp_port,
         buf: *mut c_void,
-        count: usize,
+        count: size_t,
         timeout_ms: c_uint,
     ) -> isize;
     fn sp_free_port_list(ports: *mut *mut sp_port);
@@ -218,48 +240,75 @@ extern "C" {
 }
 
 pub fn list_ports() -> Result<Vec<String>, SerialError> {
+    debug!("Listing available serial ports.");
+
+    // Allocate space for the port list pointer
     let mut port_list: *mut *mut sp_port = ptr::null_mut();
-    let mut ports = Vec::new();
+
+    // Call the C function to populate the port list
     let result: c_int;
     unsafe {
         result = sp_list_ports(&mut port_list);
     }
-    match result {
-        0 => {
-            let mut i = 0;
-            unsafe {
-                while !(*port_list.add(i)).is_null() {
-                    let port = *port_list.add(i);
-                    let name_ptr = sp_get_port_name(port);
-                    let name = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
-                    trace!("Found port: {}", name);
-                    ports.push(name);
-                    i += 1;
-                }
-                sp_free_port_list(port_list);
-            }
-            trace!("Successfully listed {} ports", ports.len());
-            Ok(ports)
-        }
-        -1 => {
-            error!("Failed to list ports: invalid argument");
-            Err(SerialError::ARG)
-        }
-        -2 => {
-            error!("Failed to list ports: operation failed");
-            Err(SerialError::FAIL)
-        }
-        -3 => {
-            error!("Failed to list ports: memory allocation error");
-            Err(SerialError::MEM)
-        }
-        -4 => {
-            error!("Failed to list ports: operation not supported");
-            Err(SerialError::SUPP)
-        }
-        _ => {
-            error!("Failed to list ports: unknown error");
-            Err(SerialError::FAIL)
-        }
+
+    trace!("sp_list_ports returned: {}", result);
+
+    if result != 0 {
+        // Handle different error codes
+        return match result {
+            -1 => {
+                error!("Failed to list ports: invalid argument");
+                Err(SerialError::ARG)
+            },
+            -2 => {
+                error!("Failed to list ports: operation failed");
+                Err(SerialError::FAIL)
+            },
+            -3 => {
+                error!("Failed to list ports: memory allocation error");
+                Err(SerialError::MEM)
+            },
+            -4 => {
+                error!("Failed to list ports: operation not supported");
+                Err(SerialError::SUPP)
+            },
+            _ => {
+                error!("Failed to list ports: unknown error");
+                Err(SerialError::FAIL)
+            },
+        };
     }
+
+    // If port_list is null, return an empty vector
+    if port_list.is_null() {
+        warn!("sp_list_ports returned a null pointer.");
+        return Ok(Vec::new());
+    }
+
+    let mut ports = Vec::new();
+    let mut i = 0;
+
+    unsafe {
+        // Iterate until we find a null pointer indicating the end of the list
+        while !(*port_list.add(i)).is_null() {
+            let port = *port_list.add(i);
+            let name_ptr = sp_get_port_name(port);
+            if name_ptr.is_null() {
+                warn!("Port {} has a null name pointer.", i);
+                ports.push(format!("Unknown Port {}", i));
+            } else {
+                // Safely convert C string to Rust String
+                let name = CStr::from_ptr(name_ptr).to_string_lossy().into_owned();
+                trace!("Found port {}: {}", i, name);
+                ports.push(name);
+            }
+            i += 1;
+        }
+
+        // Free the allocated port list
+        sp_free_port_list(port_list);
+    }
+
+    info!("Successfully listed {} serial ports.", ports.len());
+    Ok(ports)
 }

@@ -24,6 +24,12 @@ pub enum SerialError {
     Timeout,
     #[error("Unknown error")]
     Unknown,
+    #[error("Failed to open port")]
+    CONFIG_BAUDRATE,
+    #[error("Failed to configure port")]
+    CONFIG_BITS,
+    #[error("Failed to configure port")]
+    CONFIG_FLOWCONTROL,
 }
 
 #[derive(Error, Debug)]

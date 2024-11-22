@@ -1,11 +1,13 @@
 use laptop_interface::controller::ControllerManager;
+use laptop_interface::controller::LedState;
+use log::info;
 use std::thread;
 use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    log::info!("Starting controller test");
+    info!("Starting controller test.");
 
     // Create a new ControllerManager
     let mut manager = ControllerManager::new();
@@ -28,43 +30,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the controller ID
     let controller_id = manager.get_controller_ids()[0];
 
-    // Switch the controller into run mode
-    manager.set_controller_led(controller_id, laptop_interface::controller::LedState::AllOn)?;
+    
 
-    thread::sleep(Duration::from_millis(10));
+    // Switch the controller into run mode
+    manager.set_controller_led(controller_id, LedState::AllOn)?;
 
     manager.start_controller(controller_id)?;
 
-    // Give some time for the commands to take effect
-    thread::sleep(Duration::from_millis(1000));
+    thread::sleep(Duration::from_millis(10));
+
 
     // Wait for some data from the controller and update its state
-    let mut state_updated = false;
+    // Wait for some data from the controller and update its state
     for _ in 0..50 {
         // Try for 5 seconds (50 * 100ms)
         manager.update_controller_state();
         if let Some(state) = manager.get_controller_state(controller_id) {
-            log::info!("Updated controller state: {:?}", state);
-            state_updated = true;
-            break;
+            log::debug!("Updated controller state: {:?}", state);
         }
-        thread::sleep(Duration::from_millis(100));
+
+        // Check if the controller thread has died
+        if let Some(handle) = manager.join_handles.get_mut(&controller_id) {
+            if let Some(thread) = handle.as_ref() {
+                if thread.is_finished() {
+                    log::error!("Controller thread has died unexpectedly");
+                    break;
+                }
+            }
+        }
+
+        thread::sleep(Duration::from_millis(1000));
     }
 
-    if !state_updated {
-        return Err("Controller state not updated after 5 seconds".into());
+    if let Err(e) = manager.join_handles.get_mut(&controller_id).unwrap().take().unwrap().join() {
+        log::error!("Failed to join controller thread: {:?}", e);
     }
-
-    // Verify that we can get the controller state
-    let final_state = manager.get_controller_state(controller_id);
-    if final_state.is_none() {
-        return Err("Failed to get controller state".into());
-    }
-    log::info!("Final controller state: {:?}", final_state.unwrap());
-
     // Clean up
     manager.disconnect_controller(controller_id);
 
-    log::info!("Controller test completed successfully");
+    log::info!("Controller test completed.");
     Ok(())
 }

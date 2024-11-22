@@ -4,22 +4,21 @@ use crate::error::{ControllerError, ModuleError, SerialError};
 use crate::lib_serial_ffi::*;
 
 use std::ffi::CString;
+use std::hash::Hash;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use std::{default, str};
 
-use log::{self, trace};
+use log::{self, error, info, trace};
 use regex::Regex;
 use std::collections::HashMap;
 
 pub struct ControllerManager {
     controllers: Vec<Controller>,
     input_receiver: Receiver<(u32, String)>,
-    output_sender: Arc<Mutex<Sender<(u32, String)>>>,
-    controller_senders: HashMap<u32, Sender<String>>, // Changed to HashMap
+    output_sender: Sender<(u32, String)>,
+    pub join_handles: HashMap<u32, Option<JoinHandle<Result<(), ControllerError>>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -84,13 +83,15 @@ pub enum LedState {
     AllOff,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Controller {
     name: String,
     id: u32,
     serial_port: String,
     kind: ControllerKind,
     state: ControllerState,
+
+    sender: Sender<String>, // Moved sender into Controller struct
 }
 
 impl ControllerManager {
@@ -99,8 +100,8 @@ impl ControllerManager {
         ControllerManager {
             controllers: Vec::new(),
             input_receiver: output_receiver,
-            output_sender: Arc::new(Mutex::new(output_sender)),
-            controller_senders: HashMap::new(), // Initialize as HashMap
+            output_sender,
+            join_handles: HashMap::new(),
         }
     }
 
@@ -112,96 +113,225 @@ impl ControllerManager {
             serial_port,
             id
         );
+
+        let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
+
         let controller = Controller {
             name: format!("Controller_{}", serial_port.replace("/", "_")),
             id,
             serial_port: serial_port.to_string(),
             kind: ControllerManager::determine_controller_kind(serial_port),
             state: ControllerState::default(),
+            sender: tx.clone(),
         };
 
-        log::trace!("Controller: {:?}", controller);
-
-        let thread_controller = controller.clone();
-        let thread_sender = self.output_sender.clone();
-        let (tx, rx): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
-
-        // Push the controller and sender before initializing
-        self.controllers.push(controller.clone());
-        self.controller_senders.insert(controller.id, tx.clone()); // Insert into HashMap
-
-        // Initialize controller before spawning thread
         let controller_id = controller.id;
+
+        self.join_handles.insert(
+            controller_id,
+            Some(self.spawn_controller_thread(&controller, rx)?),
+        );
+        self.controllers.push(controller);
         self.stop_controller(controller_id)?;
         self.reset_controller(controller_id)?;
         self.init_controller(controller_id)?;
         self.set_controller_led(controller_id, LedState::Ready)?;
 
-        thread::spawn(move || -> Result<(), ControllerError> {
-            let port =
-                SerialPort::new(CString::new(thread_controller.serial_port.clone()).unwrap())?;
+        log::info!("Controller connected successfully");
+        Ok(())
+    }
 
-            port.open(sp_mode::SP_MODE_READ_WRITE)?;
-
+    fn spawn_controller_thread(
+        &self,
+        controller: &Controller,
+        rx: Receiver<String>,
+    ) -> Result<JoinHandle<Result<(), ControllerError>>, ControllerError> {
+        let thread_sender = self.output_sender.clone();
+        let controller_id = controller.id;
+        let serial_port = controller.serial_port.clone();
+    
+        // Move the necessary data into the closure
+        Ok(thread::spawn(move || -> Result<(), ControllerError> {
+            log::trace!("Controller {}: Thread spawned.", controller_id);
+            // Initialize the serial port
+            let port = SerialPort::new(CString::new(serial_port.clone()).map_err(|e| {
+                log::error!("Controller {}: Failed to convert serial port name to CString: {}", controller_id, e);
+                ControllerError::SerialError(SerialError::Unknown)
+            })?)?;
+            log::trace!("Controller {}: SerialPort object created.", controller_id);
+            
+            // Open the port
+            port.open(sp_mode::SP_MODE_READ_WRITE).map_err(|e| {
+                log::error!("Controller {}: Failed to open serial port: {:?}", controller_id, e);
+                ControllerError::SerialError(e)
+            })?;
+            log::trace!(
+                "Controller {}: Serial port opened in read/write mode.",
+                controller_id
+            );
+    
+            // Configure the port
+            port.configure(9600, 8, sp_flowcontrol::SP_FLOWCONTROL_NONE).map_err(|e| {
+                log::error!("Controller {}: Failed to configure serial port: {:?}", controller_id, e);
+                ControllerError::SerialError(e)
+            })?;
+            log::trace!("Controller {}: Serial port configured successfully.", controller_id);
+    
+            log::trace!("Serial port {} opened and configured successfully.", serial_port);
+    
             let mut buffer = vec![0u8; 1024];
+            log::trace!("Controller {}: Buffer initialized.", controller_id);
+    
+            log::trace!("Controller {}: Entering main loop.", controller_id);
+    
             loop {
+                log::trace!("Controller {}: Start of loop iteration.", controller_id);
+    
+                // // Send test message
+                // match thread_sender.send((controller_id, "test message".to_string())) {
+                //     Ok(_) => log::debug!(
+                //         "Controller {}: Test message sent successfully.",
+                //         controller_id
+                //     ),
+                //     Err(e) => {
+                //         log::error!(
+                //             "Controller {}: Failed to send test message: {}",
+                //             controller_id,
+                //             e
+                //         );
+                //         log::info!(
+                //             "Controller {}: Breaking loop due to send failure.",
+                //             controller_id
+                //         );
+                //         // Break the loop if sending fails
+                //         break;
+                //     }
+                // }
+                // log::trace!(
+                //     "Controller {}: Test message handling completed.",
+                //     controller_id
+                // );
+    
+                // Handle incoming messages
                 match rx.try_recv() {
                     Ok(message) => {
-                        log::debug!("Received message for controller: {}", message);
-                        port.write(&message)?;
+                        log::debug!(
+                            "Controller {}: Received message to send: {}",
+                            controller_id,
+                            message
+                        );
+                        if let Err(e) = port.write(&message) {
+                            log::warn!(
+                                "Controller {}: Failed to write to serial port: {:?}",
+                                controller_id,
+                                e
+                            );
+                        }
+                        log::info!(
+                            "Controller {}: Message processing completed.",
+                            controller_id
+                        );
                     }
                     Err(TryRecvError::Empty) => {
-                        // No message received, continue with read operation
+                        log::trace!("Controller {}: No incoming messages.", controller_id);
                     }
                     Err(TryRecvError::Disconnected) => {
-                        log::warn!("Channel to controller disconnected, exiting thread");
+                        log::error!(
+                            "Controller {}: Output channel disconnected. Exiting thread.",
+                            controller_id
+                        );
+                        log::info!(
+                            "Controller {}: Breaking loop due to channel disconnection.",
+                            controller_id
+                        );
                         break;
                     }
                 }
-                log::trace!("Reading from serial port");
+                log::trace!(
+                    "Controller {}: Incoming message handling completed.",
+                    controller_id
+                );
+    
+                log::debug!(
+                    "Controller {}: Attempting to read from serial port.",
+                    controller_id
+                );
                 match port.read(&mut buffer, 100) {
                     Ok(bytes_read) => {
                         if bytes_read > 0 {
                             let received_data =
                                 String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
-                            log::debug!("Read {} bytes from serial port", bytes_read);
-                            thread_sender
-                                .lock()
-                                .unwrap()
-                                .send((controller_id, received_data))?;
+                            log::trace!(
+                                "Controller {}: Received raw data: {:?}",
+                                controller_id,
+                                &buffer[..bytes_read]
+                            );
+                            if let Err(e) = thread_sender.send((controller_id, received_data)) {
+                                log::error!(
+                                    "Controller {}: Failed to send received data: {}",
+                                    controller_id,
+                                    e
+                                );
+                                log::info!(
+                                    "Controller {}: Breaking loop due to send failure.",
+                                    controller_id
+                                );
+                                // Break the loop if sending fails
+                                break;
+                            }
+                            log::trace!(
+                                "Controller {}: Received data processed and sent.",
+                                controller_id
+                            );
+                        } else {
+                            log::trace!(
+                                "Controller {}: No data read from serial port.",
+                                controller_id
+                            );
                         }
                     }
-                    Err(e) => match e {
-                        SerialError::Timeout => {
-                            // Timeout is normal, just continue the loop
-                            log::trace!("Read timeout, continuing");
-                            thread::sleep(Duration::from_millis(100));
+                    Err(e) => {
+                        match e {
+                            SerialError::Timeout => {
+                                log::warn!(
+                                    "Controller {}: Read operation timed out.",
+                                    controller_id
+                                );
+                            }
+                            _ => {
+                                log::error!(
+                                    "Controller {}: Error reading from serial port: {:?}",
+                                    controller_id,
+                                    e
+                                );
+                                break;
+                            }
                         }
-                        _ => {
-                            log::error!("Error reading from serial port: {:?}", e);
-                            return Err(e.into());
-                        }
-                    },
+                    }
                 }
+                log::trace!(
+                    "Controller {}: Serial port read operation completed.",
+                    controller_id
+                );
+    
+                log::debug!("Controller {}: End of loop iteration.", controller_id);
+                thread::sleep(Duration::from_millis(100));
             }
+    
+            log::warn!("Controller {}: Exiting thread loop.", controller_id);
+    
             Ok(())
-        });
-
-        log::info!("Controller connected successfully");
-        Ok(())
+        }))
     }
 
     fn send_message_to_controller(&self, id: u32, message: String) -> Result<(), ControllerError> {
-        match self.controller_senders.get(&id) {
-            Some(sender) => {
-                sender.send(message)?;
-                log::debug!("Message sent to controller {} successfully", id);
-                Ok(())
-            }
-            None => {
-                log::warn!("Controller sender for {} not found", id);
-                Err(ControllerError::ControllerNotFound)
-            }
+        if let Some(controller) = self.controllers.iter().find(|c| c.id == id) {
+            controller.sender.send(message)?;
+            log::debug!("Message sent to controller {} successfully", id);
+            Ok(())
+        } else {
+            log::warn!("Controller with id {} not found", id);
+            Err(ControllerError::ControllerNotFound)
         }
     }
 
@@ -210,23 +340,25 @@ impl ControllerManager {
             log::error!("Failed to send reset message to controller {}: {}", id, e);
         }
         log::info!("Disconnecting controller with id: {}", id);
-        if self.controller_senders.remove(&id).is_some() {
-            log::info!("Controller with id: {} disconnected successfully", id);
-        } else {
-            log::warn!("No controller found with id: {}", id);
-        }
+        // Optionally join the controller's thread here if necessary
         self.controllers.retain(|controller| controller.id != id);
     }
 
     fn read_serial(&self) -> Result<Option<(u32, String)>, ControllerError> {
-        println!("Reading serial data");
+        trace!("read_serial called on main thread");
         match self.input_receiver.try_recv() {
             Ok(data) => {
-                println!("Read serial data (Controller {}): {}", data.0, data.1);
+                info!("Read serial data from channel on main thread (Controller {}): {}", data.0, data.1);
                 Ok(Some(data))
             }
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(TryRecvError::Empty) => {
+                info!("No serial data available from channel on main thread");
+                Ok(None)
+            }
+            Err(e) => {
+                error!("Error reading serial data from channel: {:?}", e);
+                Err(e.into())
+            }
         }
     }
 
@@ -246,34 +378,35 @@ impl ControllerManager {
     }
 
     pub fn update_controller_state(&mut self) {
-        if let Ok(Some((id, data))) = self.read_serial() {
-            if let Some(controller) = self.controllers.iter_mut().find(|c| c.id == id) {
-                // Split data into lines and take the last non-empty one
-                if let Some(last_line) = data
-                    .lines()
-                    .rev()
-                    .filter(|line| !line.trim().is_empty())
-                    .next()
-                {
-                    if let Ok(bitmask) = u8::from_str_radix(last_line.trim(), 16) {
-                        controller.state = ControllerState::from_bitmask(bitmask);
-                        log::debug!(
-                            "Updated state for controller {}: {:?}",
-                            id,
-                            controller.state
-                        );
-                    } else {
+        while let Ok(Some((id, data))) = self.read_serial() {
+            // Process each line separately
+            for line in data.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                match u8::from_str_radix(trimmed, 16) {
+                    Ok(bitmask) => {
+                        if let Some(controller) = self.controllers.iter_mut().find(|c| c.id == id) {
+                            controller.state = ControllerState::from_bitmask(bitmask);
+                            log::debug!(
+                                "Updated state for controller {}: {:?}",
+                                id,
+                                controller.state
+                            );
+                        } else {
+                            log::warn!("Unknown controller ID: {}", id);
+                        }
+                    }
+                    Err(e) => {
                         log::warn!(
-                            "Received invalid data format for controller {}: {}",
+                            "Failed to parse bitmask '{}' for controller {}: {}",
+                            trimmed,
                             id,
-                            last_line
+                            e
                         );
                     }
-                } else {
-                    log::warn!("Received empty data for controller {}: {}", id, data);
                 }
-            } else {
-                log::warn!("Received data for unknown controller ID: {}", id);
             }
         }
     }
@@ -387,4 +520,3 @@ impl ControllerManager {
 //         // Implement cleanup logic here
 //     }
 // }
-// ... existing code ...
