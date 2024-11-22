@@ -1,9 +1,9 @@
 #![allow(non_camel_case_types, dead_code)]
+use libc::size_t;
 use log::{debug, error, info, trace, warn};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::ptr;
-use libc::size_t;
 
 use crate::error::SerialError;
 
@@ -24,7 +24,11 @@ impl SerialPort {
         unsafe {
             result = sp_get_port_by_name(name.as_ptr(), &mut port);
         }
-        trace!("sp_get_port_by_name returned: {}, port pointer: {:?}", result, port);
+        trace!(
+            "sp_get_port_by_name returned: {}, port pointer: {:?}",
+            result,
+            port
+        );
         if port.is_null() {
             error!("Failed to create port: null pointer");
             return Err(SerialError::AllocFail);
@@ -92,7 +96,12 @@ impl SerialPort {
         }
     }
 
-    pub fn configure(&self, baudrate: c_int, bits: c_int, flowcontrol: sp_flowcontrol) -> Result<(), SerialError> {
+    pub fn configure(
+        &self,
+        baudrate: c_int,
+        bits: c_int,
+        flowcontrol: sp_flowcontrol,
+    ) -> Result<(), SerialError> {
         debug!(
             "Configuring SerialPort with baudrate: {}, bits: {}, flowcontrol: {:?}",
             baudrate, bits, flowcontrol
@@ -141,7 +150,7 @@ impl SerialPort {
             debug!("Successfully read {} bytes", result);
             Ok(result as usize)
         } else if result == 0 {
-            warn!("No data read within the timeout period");
+            debug!("No data read within the timeout period");
             Err(SerialError::Timeout)
         } else {
             let err_code = result as c_int;
@@ -258,23 +267,23 @@ pub fn list_ports() -> Result<Vec<String>, SerialError> {
             -1 => {
                 error!("Failed to list ports: invalid argument");
                 Err(SerialError::InvalidArgument)
-            },
+            }
             -2 => {
                 error!("Failed to list ports: operation failed");
                 Err(SerialError::OperationFailed)
-            },
+            }
             -3 => {
                 error!("Failed to list ports: memory allocation error");
                 Err(SerialError::AllocFail)
-            },
+            }
             -4 => {
                 error!("Failed to list ports: operation not supported");
                 Err(SerialError::OperationNotSupported)
-            },
+            }
             _ => {
                 error!("Failed to list ports: unknown error");
                 Err(SerialError::OperationFailed)
-            },
+            }
         };
     }
 
