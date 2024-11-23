@@ -29,7 +29,6 @@ use usbd_serial::SerialPort;
 use core::fmt::Write;
 use heapless::String;
 //Interupts
-use hal::gpio::Interrupt::EdgeHigh;
 // Enum for Device State Machine
 #[repr(i32)]
 #[derive(Clone, Copy)]
@@ -230,7 +229,7 @@ fn main() -> ! {
                 }
             }
         }
-        
+
         // Actions based on the current state
         match device_state {
             DeviceState::PendingInit => {}
@@ -268,17 +267,17 @@ fn main() -> ! {
                             .expect("GPIOs should never fail to read state")
                             as u8)
                             << 3)
-                        +((n_button
+                        + ((n_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            <<3)
-                        +((s_button
+                            << 3)
+                        + ((s_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            <<3);
-                        
+                            << 3);
+
                     writeln!(button_text, "{button_data}")
                         .expect("GPIOs should never fail to read state");
 

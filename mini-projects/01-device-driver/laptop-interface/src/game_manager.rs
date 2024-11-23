@@ -120,21 +120,19 @@ impl Game {
                 // Actual game logic
 
                 // Check for new controller
-                // match self.controller_manager.connect_new_controller() {
-                //     Ok(Some(id)) => {
-                //         let player_number = self.add_player(id);
-                //         println!("Connected Player {}", player_number);
-                //     }
-                //     Ok(None) => (),
-                //     Err(e) => {
-                //         error!("Error Connecting Controller: {}", e);
-                //         println!("Error Connecting Controller: {}", e);
-                //     }
-                // }
-                //println!("Ingame");
+                match self.controller_manager.connect_new_controller() {
+                    Ok(Some(id)) => {
+                        let player_number = self.add_player(id);
+                        println!("Connected Player {}", player_number);
+                    }
+                    Ok(None) => (),
+                    Err(e) => {
+                        error!("Error Connecting Controller: {}", e);
+                        println!("Error Connecting Controller: {}", e);
+                    }
+                }
                 self.controller_manager.update_controller_state();
                 // Poll each player's controller
-                //println!("Polling Players");
                 for player in self.players.iter_mut() {
                     // Get the new state of their controller
                     match self
@@ -153,10 +151,10 @@ impl Game {
 
                             // Add score to history if at least 5 seconds have passed
                             if let Some(timer) = self.timer {
-                                if timer.elapsed().as_secs() >= 5 {
+                                if timer.elapsed().as_millis() >= 50 {
                                     player
                                         .history
-                                        .push((player.score, timer.elapsed().as_secs_f64()));
+                                        .push((player.score, timer.elapsed().as_micros() as f64));
                                     self.timer = Some(Instant::now());
                                 }
                             }
@@ -267,7 +265,7 @@ impl Game {
         }
         println!("started Controllers");
         // Start a Timer that is used to plot data and end the game
-        //self.timer = Some(Instant::now());
+        self.timer = Some(Instant::now());
 
         // Move State to Ingame
         info!("Starting Game.");
@@ -304,10 +302,18 @@ impl Game {
         // Plot Results for each player
         for player in &self.players {
             let plot_name = format!("Game Result For Player {}", player.player_number);
-            let filename = format!("images/player_{}.png", player.player_number);
-            let root_area = BitMapBackend::new(&filename, (600, 400)).into_drawing_area();
-            root_area.fill(&BLACK).unwrap();
-            let mut ctx = ChartBuilder::on(&root_area)
+            let filename = format!("Game_Results/player_{}.png", player.player_number);
+            let root_area: DrawingArea<BitMapBackend<'_>, plotters::coord::Shift> =
+                BitMapBackend::new(&filename, (600, 400)).into_drawing_area();
+            root_area.fill(&WHITE).unwrap();
+            let mut ctx: ChartContext<
+                '_,
+                BitMapBackend<'_>,
+                Cartesian2d<
+                    plotters::coord::types::RangedCoordf64,
+                    plotters::coord::types::RangedCoordf64,
+                >,
+            > = ChartBuilder::on(&root_area)
                 .set_label_area_size(LabelAreaPosition::Left, 40)
                 .set_label_area_size(LabelAreaPosition::Bottom, 40)
                 .caption(plot_name, ("sans-serif", 40))
@@ -397,12 +403,5 @@ fn controller_state_to_movement(state: ControllerState) -> (i32, i32) {
     if let Some(true) = state.south {
         y -= 1;
     }
-    if let Some(true) = state.east {
-        x += 1;
-    }
-    if let Some(true) = state.west {
-        x -= 1;
-    }
-    //println!("Movement: ({}, {})", x, y);
     (x, y)
 }

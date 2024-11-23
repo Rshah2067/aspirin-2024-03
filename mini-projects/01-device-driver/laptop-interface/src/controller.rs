@@ -28,8 +28,6 @@ pub struct ControllerState {
     pub south_west: bool,
     pub north: Option<bool>,
     pub south: Option<bool>,
-    pub east: Option<bool>,
-    pub west: Option<bool>,
 }
 
 impl ControllerState {
@@ -44,10 +42,8 @@ impl ControllerState {
             south_east: (bitmask & 0b0010) != 0,
             south_west: (bitmask & 0b0100) != 0,
             north_west: (bitmask & 0b1000) != 0,
-            north: None, // Optional buttons not present in the current bitmask
-            south: None,
-            east: None,
-            west: None,
+            north: Some((bitmask & 0b1000) != 0), // Optional buttons we added
+            south: Some((bitmask & 0b1000) != 0),
         }
     }
 }
@@ -59,10 +55,8 @@ impl default::Default for ControllerState {
             north_west: false,
             south_east: false,
             south_west: false,
-            north: None,
-            south: None,
-            east: None,
-            west: None,
+            north: Some(false),
+            south: Some(false),
         }
     }
 }
