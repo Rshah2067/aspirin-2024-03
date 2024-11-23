@@ -298,7 +298,7 @@ impl Game {
         info!("Game Over! Player {} won with {:.2} points.", winner, score);
         println!("Game Over!");
         println!("Player {} won with {:.2} points.", winner, score);
-
+        println!("Plotted Game Results are available in /Game_Results Folder!");
         // Plot Results for each player
         for player in &self.players {
             let plot_name = format!("Game Result For Player {}", player.player_number);
@@ -402,6 +402,12 @@ fn controller_state_to_movement(state: ControllerState) -> (i32, i32) {
     }
     if let Some(true) = state.south {
         y -= 1;
+    }
+    if let Some(true) = state.east {
+        x += 1;
+    }
+    if let Some(true) = state.west {
+        x -= 1;
     }
     (x, y)
 }

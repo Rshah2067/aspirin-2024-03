@@ -74,6 +74,8 @@ fn main() -> ! {
     let mut nw_button = pins.gpio12.into_pull_down_input();
     let mut n_button = pins.gpio11.into_pull_down_input();
     let mut s_button = pins.gpio10.into_pull_down_input();
+    let mut e_button = pins.gpio9.into_pull_down_input();
+    let mut w_button = pins.gpio8.into_pull_down_input();
 
     // Set up the watchdog driver - needed by the clock setup code
     let mut watchdog = hal::Watchdog::new(pac.WATCHDOG);
@@ -252,31 +254,48 @@ fn main() -> ! {
                         .is_high()
                         .expect("GPIOs should never fail to read state")
                         as u8)
-                        + ((se_button
+                        + ((ne_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
                             << 1)
-                        + ((sw_button
+                        + ((se_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
                             << 2)
+                        + ((sw_button
+                            .is_high()
+                            .expect("GPIOs should never fail to read state")
+                            as u8)
+                            << 3)
                         + ((nw_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            << 3)
+                            << 4)
                         + ((n_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            << 3)
+                            << 5)
                         + ((s_button
                             .is_high()
                             .expect("GPIOs should never fail to read state")
                             as u8)
-                            << 3);
+                            << 6)
+                        + ((e_button
+                            .is_high()
+                            .expect("GPIOs should never fail to read state")
+                            as u8)
+                            << 7)                            
+                        + ((w_button
+                            .is_high()
+                            .expect("GPIOs should never fail to read state")
+                            as u8)
+                            << 8)                        
+                        ;
+
 
                     writeln!(button_text, "{button_data}")
                         .expect("GPIOs should never fail to read state");
