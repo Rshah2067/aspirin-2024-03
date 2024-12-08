@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = {version = "4.5.20", features = ["derive"]}
+regex = "1.11.0"
+serde_json ={version = "1.0.128", features = ["preserve_order"]}
+thiserror = "1.0.64"
+

@@ -72,7 +72,7 @@ Example:
 ```bash
 jq . sample_data/all_types.json
 ```
-would output:
+would output: 
 ```
 {
   "fizz": "buzz",
