@@ -21,7 +21,9 @@ pub enum AspirinEatsError {
     /// Error when receiving request for resource that does not exist
     #[error("Resource not found")]
     NotFound,
-
+    //Error when attempting to parse a number in a path
+    #[error("Invalid Path")]
+    InvalidPath(#[from] std::num::ParseIntError),
     /// Error when request is for an HTTP method not supported on that path
     #[error("Method not allowed")]
     MethodNotAllowed,
